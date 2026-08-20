@@ -35,6 +35,7 @@ export interface HallCategory {
   code: string;
   name: string;
   description?: string;
+  displayOrder?: number;
   status: 'Active' | 'Inactive';
 }
 
@@ -384,9 +385,9 @@ export const unitRecords: UnitMasterRecord[] = [
 ];
 
 export const hallCategories: HallCategory[] = [
-  { id: 'hc1', code: 'WEDDING', name: 'Wedding Halls', description: 'Large halls suitable for weddings', status: 'Active' },
-  { id: 'hc2', code: 'FUNCTION', name: 'Function Halls', description: 'Medium sized halls for functions', status: 'Active' },
-  { id: 'hc3', code: 'DINING', name: 'Dining Halls', description: 'Dining and banquet halls', status: 'Active' },
+  { id: 'hc1', code: 'WEDDING', name: 'Wedding Halls', description: 'Large halls suitable for weddings', displayOrder: 1, status: 'Active' },
+  { id: 'hc2', code: 'FUNCTION', name: 'Function Halls', description: 'Medium sized halls for functions', displayOrder: 2, status: 'Active' },
+  { id: 'hc3', code: 'DINING', name: 'Dining Halls', description: 'Dining and banquet halls', displayOrder: 3, status: 'Active' },
 ];
 
 export const halls: Hall[] = [

@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
-import { Plus, Edit, Trash2 } from 'lucide-react';
-import { PageHeader } from '@/components/ui/StatusBadge';
+import { Plus, Edit, Trash2, Eye } from 'lucide-react';
+import { PageHeader, StatusBadge } from '@/components/ui/StatusBadge';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { SearchFilterBar, type FilterOption } from '@/components/ui/SearchFilterBar';
 import { Pagination } from '@/components/ui/Pagination';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
-import { FormField, TextInput } from '@/components/ui/Form';
+import { FormField, TextInput, TextArea, Toggle } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
 import { hallCategories as initial, type HallCategory } from '@/lib/mockData';
 
@@ -19,8 +19,10 @@ export function HallCategoryMaster() {
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<HallCategory | null>(null);
+  const [viewing, setViewing] = useState<HallCategory | null>(null);
   const [form, setForm] = useState<Partial<HallCategory>>({});
   const [deleteTarget, setDeleteTarget] = useState<HallCategory | null>(null);
+  const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -32,13 +34,24 @@ export function HallCategoryMaster() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ code: '', name: '' });
+    setViewing(null);
+    setForm({ code: '', name: '', description: '', displayOrder: 1 });
+    setStatus('Active');
     setModalOpen(true);
   };
 
   const openEdit = (record: HallCategory) => {
     setEditing(record);
+    setViewing(null);
     setForm(record);
+    setStatus(record.status ?? 'Active');
+    setModalOpen(true);
+  };
+
+  const openView = (record: HallCategory) => {
+    setViewing(record);
+    setForm(record);
+    setStatus(record.status ?? 'Active');
     setModalOpen(true);
   };
 
@@ -53,11 +66,11 @@ export function HallCategoryMaster() {
     if (dupCode) return toast.error('Duplicate Code', 'Category code already exists.');
 
     if (editing) {
-      const updated: HallCategory = { ...editing, code, name, description: form.description ?? editing.description };
+      const updated: HallCategory = { ...editing, code, name, description: form.description ?? editing.description, displayOrder: form.displayOrder ?? editing.displayOrder, status };
       setData((prev) => prev.map((r) => (r.id === editing.id ? updated : r)));
       toast.success('Category updated');
     } else {
-      const newRec: HallCategory = { id: 'hc-' + Math.random().toString(36).slice(2), code, name, description: form.description ?? '', status: 'Active' };
+      const newRec: HallCategory = { id: 'hc-' + Math.random().toString(36).slice(2), code, name, description: form.description ?? '', displayOrder: form.displayOrder ?? 99, status };
       setData((prev) => [...prev, newRec]);
       toast.success('Category created');
     }
@@ -74,14 +87,24 @@ export function HallCategoryMaster() {
     setDeleteTarget(null);
   };
 
+  const toggleStatus = (rec: HallCategory) => {
+    const newStatus = rec.status === 'Active' ? 'Inactive' : 'Active';
+    setData((prev) => prev.map((r) => (r.id === rec.id ? { ...r, status: newStatus } : r)));
+    toast.success(`Category ${newStatus === 'Active' ? 'activated' : 'deactivated'}`);
+  };
+
   const columns: Column<HallCategory>[] = [
     { key: 'code', header: 'Category Code', render: (r) => <span className="font-medium text-brown-800">{r.code}</span> },
     { key: 'name', header: 'Category Name', render: (r) => <span className="text-brown-800">{r.name}</span> },
-    { key: 'status', header: 'Status', render: (r) => <span className="text-brown-700">{r.status}</span> },
+    { key: 'description', header: 'Description', render: (r) => r.description ?? '—' },
+    { key: 'displayOrder', header: 'Display Order', align: 'center', render: (r) => r.displayOrder ?? '—' },
+    { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} /> },
     {
       key: 'actions', header: 'Actions', align: 'center', render: (r) => (
         <div className="flex justify-center gap-1">
+          <button type="button" onClick={() => openView(r)} className="rounded p-1.5 text-brown-500 hover:bg-cream-100" title="View"><Eye className="h-4 w-4"/></button>
           <button type="button" onClick={() => openEdit(r)} className="rounded p-1.5 text-brown-500 hover:bg-cream-100 hover:text-maroon-600" title="Edit"><Edit className="h-4 w-4"/></button>
+          <button type="button" onClick={() => toggleStatus(r)} className="rounded p-1.5 text-brown-500 hover:bg-cream-100" title={r.status === 'Active' ? 'Deactivate' : 'Activate'}>{r.status === 'Active' ? 'Deactivate' : 'Activate'}</button>
           <button type="button" onClick={() => setDeleteTarget(r)} className="rounded p-1.5 text-brown-500 hover:bg-red-50 hover:text-red-600" title="Delete"><Trash2 className="h-4 w-4"/></button>
         </div>
       )
@@ -101,16 +124,27 @@ export function HallCategoryMaster() {
         <Pagination page={page} totalPages={totalPages} onPage={setPage} totalItems={filtered.length} pageSize={PAGE_SIZE} />
       </div>
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Edit Category' : 'Add Category'} size="md" footer={ <><button type="button" className="btn-outline" onClick={() => setModalOpen(false)}>Cancel</button><button type="button" className="btn-primary" onClick={handleSave}>Save</button></> }>
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={viewing ? 'View Category' : (editing ? 'Edit Category' : 'Add Category')} size="md" footer={viewing ? undefined : <><button type="button" className="btn-outline" onClick={() => setModalOpen(false)}>Cancel</button><button type="button" className="btn-primary" onClick={handleSave}>Save</button></> }>
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField label="Category Code" required>
-            <TextInput value={form.code ?? ''} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="e.g. WEDDING" />
+            <TextInput value={form.code ?? ''} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="e.g. WEDDING" disabled={!!viewing} />
           </FormField>
 
           <FormField label="Category Name" required>
-            <TextInput value={form.name ?? ''} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Wedding Halls" />
+            <TextInput value={form.name ?? ''} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Wedding Halls" disabled={!!viewing} />
           </FormField>
 
+          <FormField label="Display Order">
+            <TextInput type="number" value={String(form.displayOrder ?? '')} onChange={(e) => setForm({ ...form, displayOrder: Number(e.target.value) })} disabled={!!viewing} />
+          </FormField>
+
+          <FormField label="Status">
+            <div className="pt-2"><Toggle checked={status === 'Active'} onChange={(v) => setStatus(v ? 'Active' : 'Inactive')} label={status} /></div>
+          </FormField>
+
+          <FormField label="Description" className="sm:col-span-2">
+            <TextArea value={form.description ?? ''} onChange={(e) => setForm({ ...form, description: e.target.value })} disabled={!!viewing} />
+          </FormField>
         </div>
       </Modal>
 
