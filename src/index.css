@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-font-smoothing: antialiased; }
+  body {
+    @apply bg-cream-100 text-brown-900 font-sans antialiased;
+  }
+  ::selection { @apply bg-gold-200 text-brown-900; }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary { @apply btn bg-maroon-700 text-white hover:bg-maroon-800 focus:ring-maroon-300; }
+  .btn-saffron { @apply btn bg-saffron-600 text-white hover:bg-saffron-700 focus:ring-saffron-300; }
+  .btn-outline { @apply btn border border-brown-200 bg-white text-brown-700 hover:bg-cream-100 focus:ring-brown-200; }
+  .btn-ghost { @apply btn text-brown-600 hover:bg-cream-200; }
+  .btn-danger { @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-300; }
+
+  .input {
+    @apply w-full rounded-lg border border-brown-200 bg-white px-3 py-2 text-sm text-brown-900 placeholder:text-brown-300 focus:border-maroon-400 focus:outline-none focus:ring-2 focus:ring-maroon-100;
+  }
+  .label { @apply mb-1.5 block text-sm font-medium text-brown-700; }
+  .card { @apply rounded-xl border border-brown-100 bg-white shadow-card; }
+  .badge { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium; }
+
+  .sidebar-link {
+    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-brown-100/80 transition-colors hover:bg-white/5 hover:text-white;
+  }
+  .sidebar-link-active { @apply bg-maroon-800 text-white; }
+  .sidebar-group-title { @apply px-3 text-[11px] font-semibold uppercase tracking-wider text-gold-300/70; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { @apply rounded-full bg-brown-200; }
+::-webkit-scrollbar-thumb:hover { @apply bg-brown-300; }
+
+/* Rich text editor surface */
+.rte-surface { @apply min-h-[160px] rounded-lg border border-brown-200 bg-white p-3 text-sm text-brown-900 focus:border-maroon-400 focus:outline-none; }
+
+@keyframes slideIn { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
+@keyframes modalIn { from { opacity: 0; transform: scale(0.96) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.form-input{
+@apply w-full rounded-md border border-gray-300 px-3 py-2 text-sm;
+}
