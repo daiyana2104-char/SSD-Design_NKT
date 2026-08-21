@@ -5,7 +5,7 @@ import { DataTable, type Column } from '@/components/ui/DataTable';
 import { SearchFilterBar } from '@/components/ui/SearchFilterBar';
 import { Pagination } from '@/components/ui/Pagination';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
-import { FormField, TextInput, Toggle } from '@/components/ui/Form';
+import { FormField, TextInput, Toggle, Dropdown } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
 import { additionalServices as initial, type AdditionalService } from '@/lib/mockData';
 
@@ -18,7 +18,7 @@ export function AdditionalServiceMaster() {
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<AdditionalService | null>(null);
-  const [form, setForm] = useState<Partial<AdditionalService>>({});
+  const [form, setForm] = useState<Partial<AdditionalService>>({ pricingType: 'Fixed', gstApplicable: false, status: 'Active' });
   const [deleteTarget, setDeleteTarget] = useState<AdditionalService | null>(null);
 
   const filtered = useMemo(() => {
@@ -35,20 +35,25 @@ export function AdditionalServiceMaster() {
   const handleSave = () => {
     const code = form.code?.trim() ?? '';
     const name = form.name?.trim() ?? '';
-    if (!code) return toast.error('Validation Error', 'Service code required');
-    if (!name) return toast.error('Validation Error', 'Service name required');
+    if (!code) return toast.error('Validation Error', 'Service code is required.');
+    if (!name) return toast.error('Validation Error', 'Service name is required.');
+    if (data.some(d => d.code.toLowerCase() === code.toLowerCase() && d.id !== editing?.id)) return toast.error('Duplicate Code', 'Service code already exists.');
+    if (!Number.isFinite(Number(form.rate)) || Number(form.rate) < 0) return toast.error('Validation Error', 'Rate must be numeric.');
+
+    const pricingType = form.pricingType ?? 'Fixed';
+    const status = form.status ?? 'Active';
 
     if (editing) {
-      const updated: AdditionalService = { ...editing, code, name, pricingType: form.pricingType ?? editing.pricingType, rate: form.rate ?? editing.rate, gstApplicable: form.gstApplicable ?? editing.gstApplicable, status: form.status ?? editing.status };
+      const updated: AdditionalService = { ...editing, code, name, pricingType, rate: Number(form.rate ?? editing.rate ?? 0), gstApplicable: !!form.gstApplicable, status };
       setData(prev => prev.map(p => p.id === editing.id ? updated : p));
       toast.success('Service updated');
     } else {
-      const newRec: AdditionalService = { id: 'as-' + Math.random().toString(36).slice(2), code, name, pricingType: form.pricingType ?? 'Fixed', rate: form.rate ?? 0, gstApplicable: form.gstApplicable ?? false, status: form.status ?? 'Active' };
+      const newRec: AdditionalService = { id: 'as-' + Math.random().toString(36).slice(2), code, name, pricingType, rate: Number(form.rate ?? 0), gstApplicable: !!form.gstApplicable, status };
       setData(prev => [...prev, newRec]);
       toast.success('Service created');
     }
 
-    setModalOpen(false); setEditing(null); setForm({});
+    setModalOpen(false); setEditing(null); setForm({ pricingType: 'Fixed', gstApplicable: false, status: 'Active' });
   };
 
   const handleDelete = () => { if (!deleteTarget) return; setData(prev => prev.filter(p => p.id !== deleteTarget.id)); toast.success('Service deleted'); setDeleteTarget(null); };
@@ -77,9 +82,10 @@ export function AdditionalServiceMaster() {
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField label="Code" required><TextInput value={form.code ?? ''} onChange={(e) => setForm({ ...form, code: e.target.value })} /></FormField>
           <FormField label="Name" required><TextInput value={form.name ?? ''} onChange={(e) => setForm({ ...form, name: e.target.value })} /></FormField>
-          <FormField label="Pricing Type"><TextInput value={form.pricingType ?? ''} onChange={(e) => setForm({ ...form, pricingType: e.target.value })} placeholder="Fixed or PerHour" /></FormField>
-          <FormField label="Rate"><TextInput type="number" value={String(form.rate ?? '')} onChange={(e) => setForm({ ...form, rate: Number(e.target.value) })} /></FormField>
-          <FormField label="GST Applicable"><Toggle checked={!!form.gstApplicable} onChange={(v) => setForm({ ...form, gstApplicable: v })} label={form.gstApplicable ? 'Yes' : 'No'} /></FormField>
+          <FormField label="Pricing Type"><Dropdown value={form.pricingType ?? 'Fixed'} onChange={(v) => setForm({ ...form, pricingType: v as any })} options={[{ label: 'Fixed', value: 'Fixed' }, { label: 'Per Hour', value: 'Per Hour' }, { label: 'Per Person', value: 'Per Person' }, { label: 'Per Unit', value: 'Per Unit' }]} /></FormField>
+          <FormField label="Rate"><TextInput type="number" min={0} value={String(form.rate ?? '')} onChange={(e) => setForm({ ...form, rate: Number(e.target.value) })} /></FormField>
+          <FormField label="GST Applicable"><Toggle checked={!!form.gstApplicable} onChange={(v) => setForm({ ...form, gstApplicable: v })} trueLabel="Yes" falseLabel="No" /></FormField>
+          <FormField label="Status"><Toggle checked={form.status === 'Active'} onChange={(v) => setForm({ ...form, status: v ? 'Active' : 'Inactive' })} trueLabel="Active" falseLabel="Inactive" /></FormField>
         </div>
       </Modal>
 

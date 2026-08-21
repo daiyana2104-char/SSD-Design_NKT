@@ -171,7 +171,7 @@ export function HallBooking() {
             <MultiSelect
               values={form.hallIds ?? []}
               onChange={(vals) => setForm({ ...form, hallIds: vals })}
-              options={initialHalls.map(h => ({ label: `${h.name} (${h.code})`, value: h.id }))}
+              options={initialHalls.filter(h => h.status === 'Active').map(h => ({ label: `${h.name} (${h.code})`, value: h.id }))}
               placeholder="Select halls"
               className=""
             />

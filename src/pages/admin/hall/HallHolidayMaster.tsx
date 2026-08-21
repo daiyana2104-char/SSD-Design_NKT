@@ -18,45 +18,49 @@ export function HallHolidayMaster() {
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Holiday | null>(null);
-  const [form, setForm] = useState<Partial<Holiday>>({});
+  const [form, setForm] = useState<Partial<Holiday>>({ status: 'Active' });
   const [deleteTarget, setDeleteTarget] = useState<Holiday | null>(null);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return data.filter(h => !q || h.name.toLowerCase().includes(q) || h.date.includes(q));
+    return data.filter(h => !q || h.name.toLowerCase().includes(q) || h.start.includes(q) || h.end.includes(q));
   }, [data, search]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const openCreate = () => { setEditing(null); setForm({ name: '', date: '', description: '', status: 'Active' }); setModalOpen(true); };
-  const openEdit = (h: Holiday) => { setEditing(h); setForm(h); setModalOpen(true); };
+  const openCreate = () => { setEditing(null); setForm({ name: '', start: '', end: '', status: 'Active' }); setModalOpen(true); };
+  const openEdit = (h: Holiday) => { setEditing(h); setForm({ ...h, start: h.start, end: h.end, status: h.status ?? 'Active' }); setModalOpen(true); };
 
   const handleSave = () => {
     const name = form.name?.trim() ?? '';
-    const date = form.date ?? '';
-    if (!name) return toast.error('Validation Error', 'Holiday name required');
-    if (!date) return toast.error('Validation Error', 'Holiday date required');
+    const start = form.start ?? '';
+    const end = form.end ?? '';
+    if (!name) return toast.error('Validation Error', 'Holiday name is required.');
+    if (!start || !end) return toast.error('Validation Error', 'From Date/Time and To Date/Time are required.');
+    if (new Date(start).getTime() > new Date(end).getTime()) return toast.error('Validation Error', 'From Date/Time cannot be after To Date/Time.');
+
+    const status = form.status ?? 'Active';
 
     if (editing) {
-      const updated: Holiday = { ...editing, name, date, description: form.description ?? '', status: form.status ?? editing.status };
+      const updated: Holiday = { ...editing, name, start, end, status };
       setData(prev => prev.map(p => p.id === editing.id ? updated : p));
       toast.success('Holiday updated');
     } else {
-      const newRec: Holiday = { id: 'hol-' + Math.random().toString(36).slice(2), name, date, description: form.description ?? '', status: form.status ?? 'Active' };
+      const newRec: Holiday = { id: 'hol-' + Math.random().toString(36).slice(2), name, start, end, status };
       setData(prev => [...prev, newRec]);
       toast.success('Holiday created');
     }
 
-    setModalOpen(false); setEditing(null); setForm({});
+    setModalOpen(false); setEditing(null); setForm({ status: 'Active' });
   };
 
   const handleDelete = () => { if (!deleteTarget) return; setData(prev => prev.filter(p => p.id !== deleteTarget.id)); toast.success('Holiday deleted'); setDeleteTarget(null); };
 
   const columns: Column<Holiday>[] = [
-    { key: 'name', header: 'Name', render: (r) => <span className="font-medium text-brown-800">{r.name}</span> },
-    { key: 'date', header: 'Date', render: (r) => r.date },
-    { key: 'desc', header: 'Description', render: (r) => r.description ?? '—' },
+    { key: 'name', header: 'Holiday Name', render: (r) => <span className="font-medium text-brown-800">{r.name}</span> },
+    { key: 'start', header: 'From', render: (r) => new Date(r.start).toLocaleString() },
+    { key: 'end', header: 'To', render: (r) => new Date(r.end).toLocaleString() },
     { key: 'status', header: 'Status', render: (r) => r.status },
     { key: 'actions', header: 'Actions', align: 'center', render: (r) => (
       <div className="flex justify-center gap-1"><button type="button" onClick={() => openEdit(r)} className="rounded p-1.5 text-brown-500 hover:bg-cream-100 hover:text-maroon-600" title="Edit"><Edit className="h-4 w-4"/></button><button type="button" onClick={() => setDeleteTarget(r)} className="rounded p-1.5 text-brown-500 hover:bg-red-50 hover:text-red-600" title="Delete"><Trash2 className="h-4 w-4"/></button></div>
@@ -73,10 +77,10 @@ export function HallHolidayMaster() {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Edit Holiday' : 'Add Holiday'} size="md" footer={<><button type="button" className="btn-outline" onClick={() => setModalOpen(false)}>Cancel</button><button type="button" className="btn-primary" onClick={handleSave}>Save</button></> }>
         <div className="grid gap-4 sm:grid-cols-2">
-          <FormField label="Name" required><TextInput value={form.name ?? ''} onChange={(e) => setForm({ ...form, name: e.target.value })} /></FormField>
-          <FormField label="Date" required><TextInput type="date" value={form.date ?? ''} onChange={(e) => setForm({ ...form, date: e.target.value })} /></FormField>
-          <FormField label="Description" className="sm:col-span-2"><TextInput value={form.description ?? ''} onChange={(e) => setForm({ ...form, description: e.target.value })} /></FormField>
-          <FormField label="Status"><Toggle checked={form.status === 'Active'} onChange={(v) => setForm({ ...form, status: v ? 'Active' : 'Inactive' })} label={form.status === 'Active' ? 'Active' : 'Inactive'} /></FormField>
+          <FormField label="Holiday Name" required><TextInput value={form.name ?? ''} onChange={(e) => setForm({ ...form, name: e.target.value })} /></FormField>
+          <FormField label="Status"><Toggle checked={form.status === 'Active'} onChange={(v) => setForm({ ...form, status: v ? 'Active' : 'Inactive' })} trueLabel="Active" falseLabel="Inactive" /></FormField>
+          <FormField label="From Date/Time" required className="sm:col-span-2"><TextInput type="datetime-local" value={form.start ?? ''} onChange={(e) => setForm({ ...form, start: e.target.value })} /></FormField>
+          <FormField label="To Date/Time" required className="sm:col-span-2"><TextInput type="datetime-local" value={form.end ?? ''} onChange={(e) => setForm({ ...form, end: e.target.value })} /></FormField>
         </div>
       </Modal>
 

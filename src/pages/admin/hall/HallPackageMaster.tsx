@@ -29,24 +29,39 @@ export function HallPackageMaster() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const openCreate = () => { setEditing(null); setForm({ name: '', halls: [] }); setModalOpen(true); };
-  const openEdit = (p: HallPackage) => { setEditing(p); setForm(p); setModalOpen(true); };
+  const openCreate = () => { setEditing(null); setForm({ name: '', purpose: purposes.find(p => p.status === 'Active')?.id ?? '', halls: [], status: 'Active', gstApplicable: false, inclusions: [], description: '', termsAndConditions: '' }); setModalOpen(true); };
+  const openEdit = (p: HallPackage) => { setEditing(p); setForm({ ...p, purpose: p.purpose ?? '', halls: p.halls ?? [], status: p.status ?? 'Active', gstApplicable: !!p.gstApplicable, inclusions: p.inclusions ?? [], description: p.description ?? '', termsAndConditions: p.termsAndConditions ?? '' }); setModalOpen(true); };
 
   const handleSave = () => {
     const name = form.name?.trim() ?? '';
-    if (!name) return toast.error('Validation Error', 'Package name required');
+    const purpose = form.purpose ?? '';
+    const halls = form.halls ?? [];
+    if (!name) return toast.error('Validation Error', 'Package name is required.');
+    if (!purpose) return toast.error('Validation Error', 'Hall purpose is required.');
+    if (!halls.length) return toast.error('Validation Error', 'At least one hall is required.');
+    const activePurposeExists = purposes.some(p => p.id === purpose && p.status === 'Active');
+    if (!activePurposeExists) return toast.error('Validation Error', 'Selected hall purpose is inactive.');
+    const activeHallIds = halls.filter(id => hallsList.some(h => h.id === id && h.status === 'Active'));
+    if (activeHallIds.length !== halls.length) return toast.error('Validation Error', 'Only active halls can be selected.');
+
+    const safePrice = Number(form.price ?? 0);
+    const safeSession = Number(form.sessionDurationHours ?? 0);
+    if (!Number.isFinite(safePrice) || safePrice < 0) return toast.error('Validation Error', 'Package price must be numeric.');
+    if (!Number.isFinite(safeSession) || safeSession <= 0) return toast.error('Validation Error', 'Standard Session Duration must be greater than 0.');
+
+    const status = form.status ?? 'Active';
 
     if (editing) {
-      const updated: HallPackage = { ...editing, name, purpose: form.purpose, sessionDurationHours: form.sessionDurationHours, price: form.price, advanceAmount: form.advanceAmount, depositAmount: form.depositAmount, additionalHourRate: form.additionalHourRate, gstApplicable: form.gstApplicable ?? false, description: form.description ?? '', inclusions: form.inclusions ?? [], halls: form.halls ?? [], status: form.status ?? editing.status };
+      const updated: HallPackage = { ...editing, name, purpose, sessionDurationHours: safeSession, price: safePrice, advanceAmount: Number(form.advanceAmount ?? editing.advanceAmount ?? 0), depositAmount: Number(form.depositAmount ?? editing.depositAmount ?? 0), additionalHourRate: Number(form.additionalHourRate ?? editing.additionalHourRate ?? 0), gstApplicable: !!form.gstApplicable, description: form.description ?? editing.description ?? '', termsAndConditions: form.termsAndConditions ?? editing.termsAndConditions ?? '', inclusions: form.inclusions ?? editing.inclusions ?? [], halls, status };
       setData(prev => prev.map(d => d.id === editing.id ? updated : d));
       toast.success('Package updated');
     } else {
-      const newRec: HallPackage = { id: 'pkg-' + Math.random().toString(36).slice(2), name, purpose: form.purpose ?? '', sessionDurationHours: form.sessionDurationHours ?? 0, price: form.price ?? 0, advanceAmount: form.advanceAmount ?? 0, depositAmount: form.depositAmount ?? 0, additionalHourRate: form.additionalHourRate ?? 0, gstApplicable: form.gstApplicable ?? false, description: form.description ?? '', inclusions: form.inclusions ?? [], halls: form.halls ?? [], status: 'Active' };
+      const newRec: HallPackage = { id: 'pkg-' + Math.random().toString(36).slice(2), name, purpose, sessionDurationHours: safeSession, price: safePrice, advanceAmount: Number(form.advanceAmount ?? 0), depositAmount: Number(form.depositAmount ?? 0), additionalHourRate: Number(form.additionalHourRate ?? 0), gstApplicable: !!form.gstApplicable, description: form.description ?? '', termsAndConditions: form.termsAndConditions ?? '', inclusions: form.inclusions ?? [], halls, status };
       setData(prev => [...prev, newRec]);
       toast.success('Package created');
     }
 
-    setModalOpen(false); setEditing(null); setForm({});
+    setModalOpen(false); setEditing(null); setForm({ status: 'Active', gstApplicable: false, inclusions: [] });
   };
 
   const handleDelete = () => { if (!deleteTarget) return; setData(prev => prev.filter(p => p.id !== deleteTarget.id)); toast.success('Package deleted'); setDeleteTarget(null); };
@@ -74,32 +89,36 @@ export function HallPackageMaster() {
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField label="Package Name" required><TextInput value={form.name ?? ''} onChange={(e) => setForm({ ...form, name: e.target.value })} /></FormField>
 
-          <FormField label="Hall Purpose"><select value={form.purpose ?? ''} onChange={(e) => setForm({ ...form, purpose: e.target.value })} className="input"><option value="">Select purpose</option>{purposes.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
+          <FormField label="Hall Purpose"><select value={form.purpose ?? ''} onChange={(e) => setForm({ ...form, purpose: e.target.value })} className="input"><option value="">Select purpose</option>{purposes.filter(p => p.status === 'Active').map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
 
-          <FormField label="Session Duration (hrs)"><TextInput type="number" value={String(form.sessionDurationHours ?? '')} onChange={(e) => setForm({ ...form, sessionDurationHours: Number(e.target.value) })} /></FormField>
+          <FormField label="Standard Session Duration"><TextInput type="number" min={1} value={String(form.sessionDurationHours ?? '')} onChange={(e) => setForm({ ...form, sessionDurationHours: Number(e.target.value) })} /></FormField>
 
-          <FormField label="Price"><TextInput type="number" value={String(form.price ?? '')} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} /></FormField>
+          <FormField label="Package Price"><TextInput type="number" min={0} value={String(form.price ?? '')} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} /></FormField>
 
-          <FormField label="Advance Amount"><TextInput type="number" value={String(form.advanceAmount ?? '')} onChange={(e) => setForm({ ...form, advanceAmount: Number(e.target.value) })} /></FormField>
+          <FormField label="Advance Amount"><TextInput type="number" min={0} value={String(form.advanceAmount ?? '')} onChange={(e) => setForm({ ...form, advanceAmount: Number(e.target.value) })} /></FormField>
 
-          <FormField label="Deposit Amount"><TextInput type="number" value={String(form.depositAmount ?? '')} onChange={(e) => setForm({ ...form, depositAmount: Number(e.target.value) })} /></FormField>
+          <FormField label="Deposit Amount"><TextInput type="number" min={0} value={String(form.depositAmount ?? '')} onChange={(e) => setForm({ ...form, depositAmount: Number(e.target.value) })} /></FormField>
 
-          <FormField label="Additional Hour Rate"><TextInput type="number" value={String(form.additionalHourRate ?? '')} onChange={(e) => setForm({ ...form, additionalHourRate: Number(e.target.value) })} /></FormField>
+          <FormField label="Additional Hour Rate"><TextInput type="number" min={0} value={String(form.additionalHourRate ?? '')} onChange={(e) => setForm({ ...form, additionalHourRate: Number(e.target.value) })} /></FormField>
 
-          <FormField label="GST Applicable"><Toggle checked={!!form.gstApplicable} onChange={(v) => setForm({ ...form, gstApplicable: v })} label={form.gstApplicable ? 'Yes' : 'No'} /></FormField>
+          <FormField label="GST Applicable"><Toggle checked={!!form.gstApplicable} onChange={(v) => setForm({ ...form, gstApplicable: v })} trueLabel="Yes" falseLabel="No" /></FormField>
 
-          <FormField label="Halls (select multiple)" className="sm:col-span-2">
+          <FormField label="Status"><Toggle checked={form.status === 'Active'} onChange={(v) => setForm({ ...form, status: v ? 'Active' : 'Inactive' })} trueLabel="Active" falseLabel="Inactive" /></FormField>
+
+          <FormField label="Halls - Multiple Selection" className="sm:col-span-2">
             <MultiSelect
               values={form.halls ?? []}
               onChange={(vals) => setForm({ ...form, halls: vals })}
-              options={hallsList.map(h => ({ label: `${h.name} (${h.code})`, value: h.id }))}
+              options={hallsList.filter(h => h.status === 'Active').map(h => ({ label: `${h.name} (${h.code})`, value: h.id }))}
               placeholder="Select halls"
             />
           </FormField>
 
-          <FormField label="Inclusions (comma separated)" className="sm:col-span-2"><TextInput value={(form.inclusions ?? []).join(', ')} onChange={(e) => setForm({ ...form, inclusions: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} /></FormField>
+          <FormField label="Package Inclusions" className="sm:col-span-2"><TextInput value={(form.inclusions ?? []).join(', ')} onChange={(e) => setForm({ ...form, inclusions: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} /></FormField>
 
           <FormField label="Description" className="sm:col-span-2"><TextInput value={form.description ?? ''} onChange={(e) => setForm({ ...form, description: e.target.value })} /></FormField>
+
+          <FormField label="Terms & Conditions" className="sm:col-span-2"><TextInput value={form.termsAndConditions ?? ''} onChange={(e) => setForm({ ...form, termsAndConditions: e.target.value })} /></FormField>
 
         </div>
       </Modal>

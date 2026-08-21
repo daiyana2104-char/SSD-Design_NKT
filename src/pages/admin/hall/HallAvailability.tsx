@@ -51,9 +51,9 @@ export function HallAvailability() {
 
           <div>
             <label className="text-xs font-semibold text-brown-500">Category</label>
-            <select className="input mt-1" onChange={(e) => { const cat = e.target.value; setHallId(cat ? initialHalls.find(h => h.categoryId === cat)?.id ?? '' : ''); }}>
+            <select className="input mt-1" onChange={(e) => { const cat = e.target.value; setHallId(cat ? initialHalls.filter(h => h.status === 'Active').find(h => h.categoryId === cat)?.id ?? '' : ''); }}>
               <option value="">All Categories</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {categories.filter(c => c.status === 'Active').map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
         </div>

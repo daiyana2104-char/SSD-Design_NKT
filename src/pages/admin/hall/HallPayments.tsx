@@ -17,7 +17,7 @@ export function HallPayments() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState<Partial<HallPayment>>({});
+  const [form, setForm] = useState<Partial<HallPayment>>({ paymentMode: 'Cash', paymentDate: new Date().toISOString().slice(0, 10) });
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -31,11 +31,12 @@ export function HallPayments() {
 
   const handleSave = () => {
     if (!form.bookingId || !form.amount) return toast.error('Validation Error', 'Please fill required fields.');
-    const newP: HallPayment = { id: 'hp-' + Math.random().toString(36).slice(2), bookingId: form.bookingId as string, amount: Number(form.amount), paymentMode: form.paymentMode ?? 'Cash', paymentDate: form.paymentDate ?? new Date().toISOString(), reference: form.reference ?? '', collectedBy: form.collectedBy ?? '' };
+    if (!Number.isFinite(Number(form.amount)) || Number(form.amount) <= 0) return toast.error('Validation Error', 'Amount must be greater than 0.');
+    const newP: HallPayment = { id: 'hp-' + Math.random().toString(36).slice(2), bookingId: form.bookingId as string, amount: Number(form.amount), paymentMode: form.paymentMode ?? 'Cash', paymentDate: form.paymentDate ?? new Date().toISOString().slice(0, 10), reference: form.reference ?? '', collectedBy: form.collectedBy ?? '' };
     setData(prev => [...prev, newP]);
     toast.success('Payment recorded');
     setModalOpen(false);
-    setForm({});
+    setForm({ paymentMode: 'Cash', paymentDate: new Date().toISOString().slice(0, 10) });
   };
 
   const columns: Column<HallPayment>[] = [
@@ -73,7 +74,12 @@ export function HallPayments() {
           </FormField>
 
           <FormField label="Payment Mode">
-            <TextInput value={form.paymentMode ?? ''} onChange={(e) => setForm({ ...form, paymentMode: e.target.value })} placeholder="e.g. Cash" />
+            <select value={form.paymentMode ?? 'Cash'} onChange={(e) => setForm({ ...form, paymentMode: e.target.value })} className="input">
+              <option value="Cash">Cash</option>
+              <option value="Card">Card</option>
+              <option value="Bank Transfer">Bank Transfer</option>
+              <option value="Online">Online</option>
+            </select>
           </FormField>
 
           <FormField label="Payment Date">

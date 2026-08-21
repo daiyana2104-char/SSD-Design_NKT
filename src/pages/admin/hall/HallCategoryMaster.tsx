@@ -35,7 +35,7 @@ export function HallCategoryMaster() {
   const openCreate = () => {
     setEditing(null);
     setViewing(null);
-    setForm({ code: '', name: '', description: '', displayOrder: 1 });
+    setForm({ code: '', name: '' });
     setStatus('Active');
     setModalOpen(true);
   };
@@ -66,11 +66,11 @@ export function HallCategoryMaster() {
     if (dupCode) return toast.error('Duplicate Code', 'Category code already exists.');
 
     if (editing) {
-      const updated: HallCategory = { ...editing, code, name, description: form.description ?? editing.description, displayOrder: form.displayOrder ?? editing.displayOrder, status };
+      const updated: HallCategory = { ...editing, code, name, status };
       setData((prev) => prev.map((r) => (r.id === editing.id ? updated : r)));
       toast.success('Category updated');
     } else {
-      const newRec: HallCategory = { id: 'hc-' + Math.random().toString(36).slice(2), code, name, description: form.description ?? '', displayOrder: form.displayOrder ?? 99, status };
+      const newRec: HallCategory = { id: 'hc-' + Math.random().toString(36).slice(2), code, name, status };
       setData((prev) => [...prev, newRec]);
       toast.success('Category created');
     }
@@ -82,8 +82,8 @@ export function HallCategoryMaster() {
 
   const handleDelete = () => {
     if (!deleteTarget) return;
-    setData((prev) => prev.filter((r) => r.id !== deleteTarget.id));
-    toast.success('Category deleted');
+    setData((prev) => prev.map((r) => r.id === deleteTarget.id ? { ...r, status: 'Inactive' } : r));
+    toast.success('Category deactivated');
     setDeleteTarget(null);
   };
 
@@ -96,8 +96,6 @@ export function HallCategoryMaster() {
   const columns: Column<HallCategory>[] = [
     { key: 'code', header: 'Category Code', render: (r) => <span className="font-medium text-brown-800">{r.code}</span> },
     { key: 'name', header: 'Category Name', render: (r) => <span className="text-brown-800">{r.name}</span> },
-    { key: 'description', header: 'Description', render: (r) => r.description ?? '—' },
-    { key: 'displayOrder', header: 'Display Order', align: 'center', render: (r) => r.displayOrder ?? '—' },
     { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} /> },
     {
       key: 'actions', header: 'Actions', align: 'center', render: (r) => (
@@ -105,7 +103,7 @@ export function HallCategoryMaster() {
           <button type="button" onClick={() => openView(r)} className="rounded p-1.5 text-brown-500 hover:bg-cream-100" title="View"><Eye className="h-4 w-4"/></button>
           <button type="button" onClick={() => openEdit(r)} className="rounded p-1.5 text-brown-500 hover:bg-cream-100 hover:text-maroon-600" title="Edit"><Edit className="h-4 w-4"/></button>
           <button type="button" onClick={() => toggleStatus(r)} className="rounded p-1.5 text-brown-500 hover:bg-cream-100" title={r.status === 'Active' ? 'Deactivate' : 'Activate'}>{r.status === 'Active' ? 'Deactivate' : 'Activate'}</button>
-          <button type="button" onClick={() => setDeleteTarget(r)} className="rounded p-1.5 text-brown-500 hover:bg-red-50 hover:text-red-600" title="Delete"><Trash2 className="h-4 w-4"/></button>
+          <button type="button" onClick={() => setDeleteTarget(r)} className="rounded p-1.5 text-brown-500 hover:bg-red-50 hover:text-red-600" title="Deactivate"><Trash2 className="h-4 w-4"/></button>
         </div>
       )
     }
@@ -134,16 +132,8 @@ export function HallCategoryMaster() {
             <TextInput value={form.name ?? ''} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Wedding Halls" disabled={!!viewing} />
           </FormField>
 
-          <FormField label="Display Order">
-            <TextInput type="number" value={String(form.displayOrder ?? '')} onChange={(e) => setForm({ ...form, displayOrder: Number(e.target.value) })} disabled={!!viewing} />
-          </FormField>
-
           <FormField label="Status">
-            <div className="pt-2"><Toggle checked={status === 'Active'} onChange={(v) => setStatus(v ? 'Active' : 'Inactive')} label={status} /></div>
-          </FormField>
-
-          <FormField label="Description" className="sm:col-span-2">
-            <TextArea value={form.description ?? ''} onChange={(e) => setForm({ ...form, description: e.target.value })} disabled={!!viewing} />
+            <div className="pt-2"><Toggle checked={status === 'Active'} onChange={(v) => setStatus(v ? 'Active' : 'Inactive')} trueLabel="Active" falseLabel="Inactive" /></div>
           </FormField>
         </div>
       </Modal>

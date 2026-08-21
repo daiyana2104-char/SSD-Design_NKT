@@ -175,7 +175,19 @@ export function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement
   return <textarea {...props} className={cn('input min-h-[80px]', props.className)} />;
 }
 
-export function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label?: string }) {
+export function Toggle({
+  checked,
+  onChange,
+  label,
+  trueLabel,
+  falseLabel,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label?: string;
+  trueLabel?: string;
+  falseLabel?: string;
+}) {
   const toggle = () => onChange(!checked);
   const handleKey = (e: React.KeyboardEvent<HTMLButtonElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -184,13 +196,15 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
     }
   };
 
+  const valueLabel = checked ? (trueLabel ?? label ?? 'Yes') : (falseLabel ?? label ?? 'No');
+
   return (
-    <label className="flex cursor-pointer items-center gap-2">
+    <label className="flex cursor-pointer items-center gap-3">
       <button
         type="button"
         role="switch"
         aria-checked={checked}
-        aria-label={label ?? 'Toggle'}
+        aria-label={valueLabel}
         tabIndex={0}
         onClick={toggle}
         onKeyDown={handleKey}
@@ -201,7 +215,7 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
       >
         <span className={cn('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform', checked ? 'translate-x-6' : 'translate-x-1')} />
       </button>
-      {label && <span className="text-sm text-brown-700">{label}</span>}
+      <span className="text-sm font-medium text-brown-700">{valueLabel}</span>
     </label>
   );
 }

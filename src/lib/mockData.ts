@@ -67,6 +67,7 @@ export interface HallPackage {
   additionalHourRate?: number;
   gstApplicable?: boolean;
   description?: string;
+  termsAndConditions?: string;
   inclusions?: string[];
   halls: string[]; // hall ids
   status: 'Active' | 'Inactive';
@@ -85,7 +86,7 @@ export interface AdditionalService {
   code: string;
   name: string;
   description?: string;
-  pricingType?: 'Fixed' | 'PerHour' | 'PerPerson';
+  pricingType?: 'Fixed' | 'Per Hour' | 'Per Person' | 'Per Unit';
   rate?: number;
   gstApplicable?: boolean;
   status: 'Active' | 'Inactive';
@@ -397,7 +398,7 @@ export const halls: Hall[] = [
 ];
 
 export const hallPackages: HallPackage[] = [
-  { id: 'hp1', name: 'Wedding Package', purpose: 'Marriage / Wedding', sessionDurationHours: 6, price: 1200, advanceAmount: 300, depositAmount: 500, additionalHourRate: 250, gstApplicable: true, description: 'Wedding package including halls and basic inclusions', inclusions: ['Priest', 'Musicians'], halls: ['h1','h3'], status: 'Active' },
+  { id: 'hp1', name: 'Wedding Package', purpose: 'hp-1', sessionDurationHours: 6, price: 3700, advanceAmount: 500, depositAmount: 500, additionalHourRate: 350, gstApplicable: true, description: 'Wedding package including halls and basic inclusions', termsAndConditions: 'Standard temple policy applies.', inclusions: ['Priest', 'Musicians'], halls: ['h1', 'h3'], status: 'Active' },
 ];
 
 export interface HallPurpose {
@@ -414,11 +415,15 @@ export const hallPurposes: HallPurpose[] = [
   { id: 'hp-4', name: 'Temple Event', description: 'Temple organised events', status: 'Active' },
 ];
 
-export const holidays: Holiday[] = [];
+export const holidays: Holiday[] = [
+  { id: 'hol1', name: 'National Day', start: '2026-08-09T09:00', end: '2026-08-09T18:00', status: 'Active' },
+  { id: 'hol2', name: 'Deepavali Holiday', start: '2026-10-20T00:00', end: '2026-10-21T23:59', status: 'Active' },
+];
 
 export const additionalServices: AdditionalService[] = [
   { id: 'as1', code: 'DEC', name: 'Decoration', pricingType: 'Fixed', rate: 200, gstApplicable: true, status: 'Active' },
-  { id: 'as2', code: 'SOUND', name: 'Sound System', pricingType: 'Fixed', rate: 150, gstApplicable: true, status: 'Active' },
+  { id: 'as2', code: 'SOUND', name: 'Sound System', pricingType: 'Per Hour', rate: 150, gstApplicable: true, status: 'Active' },
+  { id: 'as3', code: 'TENT', name: 'Tent Setup', pricingType: 'Per Unit', rate: 300, gstApplicable: true, status: 'Active' },
 ];
 
 export const hallBookings: HallBooking[] = [];

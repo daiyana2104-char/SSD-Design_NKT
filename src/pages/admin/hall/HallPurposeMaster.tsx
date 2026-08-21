@@ -18,7 +18,7 @@ export function HallPurposeMaster() {
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<HallPurpose | null>(null);
-  const [form, setForm] = useState<Partial<HallPurpose>>({});
+  const [form, setForm] = useState<Partial<HallPurpose>>({ status: 'Active' });
   const [deleteTarget, setDeleteTarget] = useState<HallPurpose | null>(null);
 
   const filtered = useMemo(() => {
@@ -29,28 +29,30 @@ export function HallPurposeMaster() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const openCreate = () => { setEditing(null); setForm({ name: '' }); setModalOpen(true); };
+  const openCreate = () => { setEditing(null); setForm({ name: '', description: '', status: 'Active' }); setModalOpen(true); };
   const openEdit = (r: HallPurpose) => { setEditing(r); setForm(r); setModalOpen(true); };
 
   const handleSave = () => {
     const name = form.name?.trim() ?? '';
     if (!name) return toast.error('Validation Error', 'Purpose name is required.');
-    if (data.some(d => d.name.toLowerCase() === name.toLowerCase() && d.id !== editing?.id)) return toast.error('Duplicate', 'Purpose exists');
+    if (data.some(d => d.name.toLowerCase() === name.toLowerCase() && d.id !== editing?.id)) return toast.error('Duplicate', 'Purpose already exists.');
+
+    const status = form.status ?? 'Active';
 
     if (editing) {
-      const updated: HallPurpose = { ...editing, name, description: form.description ?? editing.description };
+      const updated: HallPurpose = { ...editing, name, description: form.description ?? editing.description, status };
       setData(prev => prev.map(p => p.id === editing.id ? updated : p));
       toast.success('Purpose updated');
     } else {
-      const newRec: HallPurpose = { id: 'hp-' + Math.random().toString(36).slice(2), name, description: form.description ?? '', status: 'Active' };
+      const newRec: HallPurpose = { id: 'hp-' + Math.random().toString(36).slice(2), name, description: form.description ?? '', status };
       setData(prev => [...prev, newRec]);
       toast.success('Purpose created');
     }
 
-    setModalOpen(false); setEditing(null); setForm({});
+    setModalOpen(false); setEditing(null); setForm({ status: 'Active' });
   };
 
-  const handleDelete = () => { if (!deleteTarget) return; setData(prev => prev.filter(p => p.id !== deleteTarget.id)); toast.success('Purpose deleted'); setDeleteTarget(null); };
+  const handleDelete = () => { if (!deleteTarget) return; setData(prev => prev.map(p => p.id === deleteTarget.id ? { ...p, status: 'Inactive' } : p)); toast.success('Purpose deactivated'); setDeleteTarget(null); };
 
   const columns: Column<HallPurpose>[] = [
     { key: 'name', header: 'Purpose Name', render: (r) => <span className="text-brown-800">{r.name}</span> },
@@ -72,6 +74,7 @@ export function HallPurposeMaster() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Edit Purpose' : 'Add Purpose'} size="md" footer={<><button type="button" className="btn-outline" onClick={() => setModalOpen(false)}>Cancel</button><button type="button" className="btn-primary" onClick={handleSave}>Save</button></>}>
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField label="Purpose Name" required><TextInput value={form.name ?? ''} onChange={(e) => setForm({ ...form, name: e.target.value })} /></FormField>
+          <FormField label="Status"><Toggle checked={form.status === 'Active'} onChange={(v) => setForm({ ...form, status: v ? 'Active' : 'Inactive' })} trueLabel="Active" falseLabel="Inactive" /></FormField>
           <FormField label="Description" className="sm:col-span-2"><TextInput value={form.description ?? ''} onChange={(e) => setForm({ ...form, description: e.target.value })} /></FormField>
         </div>
       </Modal>
