@@ -7,7 +7,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { Modal } from '@/components/ui/Modal';
 import { FormField, TextArea, TextInput, Toggle, Dropdown } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
-import { gstRecords, items, type Item } from '@/lib/mockData';
+import { gstRecords } from '@/lib/mockData';
 
 type MealType = 'Breakfast' | 'Lunch' | 'Dinner' | 'Snacks' | 'Other';
 
@@ -15,6 +15,7 @@ interface MealPackage {
   id: string;
   code: string;
   name: string;
+  categoryId: string;
   mealType: MealType;
   pricePerPax: number;
   minimumPax: number;
@@ -27,20 +28,76 @@ interface MealPackage {
   itemIds: string[];
 }
 
+interface MealCategory {
+  id: string;
+  code: string;
+  name: string;
+  status: 'Active' | 'Inactive';
+}
+
+interface MealFoodItem {
+  id: string;
+  code: string;
+  name: string;
+  status: 'Active' | 'Inactive';
+}
+
 const STORAGE_KEY = 'meal_packages';
 const PAGE_SIZE = 8;
 const mealTypeOptions = ['Breakfast', 'Lunch', 'Dinner', 'Snacks', 'Other'].map((value) => ({ label: value, value }));
+const mealCategoriesKey = 'meal_categories';
+const mealItemsKey = 'meal_items';
+const initialMealCategories: MealCategory[] = [
+  { id: 'mc1', code: 'BRK', name: 'Breakfast', status: 'Active' },
+  { id: 'mc2', code: 'LUN', name: 'Lunch', status: 'Active' },
+  { id: 'mc3', code: 'DIN', name: 'Dinner', status: 'Active' },
+  { id: 'mc4', code: 'SNK', name: 'Snacks', status: 'Active' },
+];
+const initialMealItems: MealFoodItem[] = [
+  { id: 'meal-i1', code: 'FOOD001', name: 'Idly', status: 'Active' },
+  { id: 'meal-i2', code: 'FOOD002', name: 'Vada', status: 'Active' },
+  { id: 'meal-i3', code: 'FOOD003', name: 'Pongal', status: 'Active' },
+  { id: 'meal-i4', code: 'FOOD004', name: 'Rice', status: 'Active' },
+  { id: 'meal-i5', code: 'FOOD005', name: 'Sambar', status: 'Active' },
+  { id: 'meal-i6', code: 'FOOD006', name: 'Rasam', status: 'Active' },
+  { id: 'meal-i7', code: 'FOOD007', name: 'Sweet', status: 'Active' },
+  { id: 'meal-i8', code: 'FOOD008', name: 'Payasam', status: 'Active' },
+  { id: 'meal-i9', code: 'FOOD009', name: 'Briyani', status: 'Active' },
+  { id: 'meal-i10', code: 'FOOD010', name: 'Dalcha', status: 'Active' },
+  { id: 'meal-i11', code: 'FOOD011', name: 'Raitha', status: 'Active' },
+  { id: 'meal-i12', code: 'FOOD012', name: 'Papadam', status: 'Active' },
+  { id: 'meal-i13', code: 'FOOD013', name: 'Coffee', status: 'Active' },
+  { id: 'meal-i14', code: 'FOOD014', name: 'Tea', status: 'Active' },
+  { id: 'meal-i15', code: 'FOOD015', name: 'Lemon Rice', status: 'Active' },
+  { id: 'meal-i16', code: 'FOOD016', name: 'Thayir Rice', status: 'Active' },
+];
 const initialPackages: MealPackage[] = [
-  { id: 'mp1', code: 'MEAL001', name: 'Annadhanam Package', mealType: 'Lunch', pricePerPax: 10, minimumPax: 1, gstApplicable: false, description: 'Meal package for devotees.', status: 'Active', itemIds: ['i1'] },
-  { id: 'mp2', code: 'MEAL002', name: 'Special Meal Set', mealType: 'Dinner', pricePerPax: 15, minimumPax: 10, maximumPax: 500, gstApplicable: true, gstRate: 9, gstRecordId: 'g1', description: 'Special meal package for events.', status: 'Active', itemIds: ['i4', 'i5'] },
+  { id: 'mp1', code: 'MEAL001', name: 'Annadhanam Package', categoryId: 'mc2', mealType: 'Lunch', pricePerPax: 10, minimumPax: 1, gstApplicable: false, description: 'Meal package for devotees.', status: 'Active', itemIds: ['meal-i1'] },
+  { id: 'mp2', code: 'MEAL002', name: 'Special Meal Set', categoryId: 'mc3', mealType: 'Dinner', pricePerPax: 15, minimumPax: 10, maximumPax: 500, gstApplicable: true, gstRate: 9, gstRecordId: 'g1', description: 'Special meal package for events.', status: 'Active', itemIds: ['meal-i4', 'meal-i5'] },
 ];
 
 function loadPackages() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) as MealPackage[] : initialPackages;
+    const packages = saved ? JSON.parse(saved) as Partial<MealPackage>[] : initialPackages;
+    const legacyItemIds: Record<string, string> = { i1: 'meal-i1', i4: 'meal-i4', i5: 'meal-i5' };
+    const categoryIds: Record<string, string> = { Breakfast: 'mc1', Lunch: 'mc2', Dinner: 'mc3', Snacks: 'mc4' };
+    return packages.map((record) => ({
+      ...record,
+      categoryId: record.categoryId ?? categoryIds[record.mealType ?? ''] ?? '',
+      itemIds: (record.itemIds ?? []).map((itemId) => legacyItemIds[itemId] ?? itemId),
+    })) as MealPackage[];
   } catch {
     return initialPackages;
+  }
+}
+
+function loadStored<T>(key: string, fallback: T): T {
+  try {
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) as T : fallback;
+  } catch {
+    return fallback;
   }
 }
 
@@ -49,7 +106,7 @@ function savePackages(value: MealPackage[]) {
 }
 
 const blankForm = (): Omit<MealPackage, 'id'> => ({
-  code: '', name: '', mealType: 'Breakfast', pricePerPax: 0, minimumPax: 0,
+  code: '', name: '', categoryId: '', mealType: 'Breakfast', pricePerPax: 0, minimumPax: 0,
   maximumPax: undefined, gstApplicable: false, gstRate: undefined, gstRecordId: undefined,
   description: '', status: 'Active', itemIds: [],
 });
@@ -68,7 +125,11 @@ export function MealPackageManagement() {
 
   const updateData = (next: MealPackage[]) => { setData(next); savePackages(next); };
   const activeGstRecords = gstRecords.filter((record) => record.status === 'Active');
-  const activeItems = items.filter((item) => item.status === 'Active');
+  const mealCategories = loadStored<MealCategory[]>(mealCategoriesKey, initialMealCategories);
+  const allMealItems = loadStored<MealFoodItem[]>(mealItemsKey, initialMealItems);
+  const activeCategories = mealCategories.filter((category) => category.status === 'Active');
+  const selectedItems = allMealItems.filter((item) => form.itemIds.includes(item.id));
+  const activeItems = allMealItems.filter((item) => item.status === 'Active');
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -92,12 +153,14 @@ export function MealPackageManagement() {
     const maximumPax = form.maximumPax === undefined || form.maximumPax === null || String(form.maximumPax) === '' ? undefined : Number(form.maximumPax);
     if (!code) return toast.error('Validation Error', 'Package code is required.');
     if (!name) return toast.error('Validation Error', 'Package name is required.');
+    if (!form.categoryId || !mealCategories.some((category) => category.id === form.categoryId && category.status === 'Active')) return toast.error('Validation Error', 'Select an active meal category.');
     if (!form.mealType) return toast.error('Validation Error', 'Meal type is required.');
     if (!Number.isFinite(price) || price <= 0) return toast.error('Validation Error', 'Price per pax must be greater than 0.');
     if (!Number.isFinite(minimumPax) || minimumPax < 0) return toast.error('Validation Error', 'Minimum pax cannot be negative.');
     if (maximumPax !== undefined && (!Number.isFinite(maximumPax) || maximumPax < 0 || maximumPax < minimumPax)) return toast.error('Validation Error', 'Maximum pax must be greater than or equal to minimum pax.');
     if (data.some((record) => record.code.toLowerCase() === code.toLowerCase() && record.id !== editing?.id)) return toast.error('Validation Error', 'Package code must be unique.');
     if (form.gstApplicable && !form.gstRecordId) return toast.error('Validation Error', 'Select an applicable GST rate.');
+    if (form.itemIds.length === 0) return toast.error('Validation Error', 'Select at least one active food item.');
 
     const gst = activeGstRecords.find((record) => record.id === form.gstRecordId);
     const record: MealPackage = { ...form, id: editing?.id ?? `mp-${Math.random().toString(36).slice(2)}`, code, name, pricePerPax: price, minimumPax, maximumPax, gstRate: form.gstApplicable ? gst?.percentage : undefined, gstRecordId: form.gstApplicable ? form.gstRecordId : undefined };
@@ -111,12 +174,13 @@ export function MealPackageManagement() {
     toast.success(record.status === 'Active' ? 'Meal package deactivated' : 'Meal package activated');
   };
 
-  const selectedItems = activeItems.filter((item) => form.itemIds.includes(item.id));
-  const availableItems = activeItems.filter((item) => !form.itemIds.includes(item.id) && `${item.code} ${item.name} ${item.category}`.toLowerCase().includes(itemSearch.toLowerCase()));
-  const itemLabel = (item: Item) => `${item.name} (${item.code})`;
+  const availableItems = activeItems.filter((item) => !form.itemIds.includes(item.id) && `${item.code} ${item.name}`.toLowerCase().includes(itemSearch.toLowerCase()));
+  const itemLabel = (item: MealFoodItem) => `${item.name} (${item.code})`;
+  const categoryLabel = (categoryId: string) => mealCategories.find((category) => category.id === categoryId)?.name ?? 'Unknown category';
   const columns: Column<MealPackage>[] = [
     { key: 'code', header: 'Package Code' },
     { key: 'name', header: 'Package Name', render: (record) => <span className="font-medium text-brown-800">{record.name}</span> },
+    { key: 'category', header: 'Meal Category', render: (record) => categoryLabel(record.categoryId) },
     { key: 'mealType', header: 'Meal Type' },
     { key: 'price', header: 'Price / Pax', align: 'right', render: (record) => `S$${record.pricePerPax.toFixed(2)}` },
     { key: 'minimumPax', header: 'Minimum Pax', align: 'right' },
@@ -134,19 +198,20 @@ export function MealPackageManagement() {
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField label="Package Code" required><TextInput disabled={!!viewing} value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value })} /></FormField>
         <FormField label="Package Name" required><TextInput disabled={!!viewing} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></FormField>
-        <FormField label="Meal Type" required><Dropdown value={form.mealType} onChange={(value) => setForm({ ...form, mealType: value as MealType })} options={mealTypeOptions} /></FormField>
+        <FormField label="Meal Category" required><div className={viewing ? 'pointer-events-none opacity-60' : undefined}><Dropdown value={form.categoryId} onChange={(value) => setForm({ ...form, categoryId: value })} options={activeCategories.concat(viewing && form.categoryId && !activeCategories.some((category) => category.id === form.categoryId) ? mealCategories.filter((category) => category.id === form.categoryId) : []).map((category) => ({ label: `${category.name} (${category.code})`, value: category.id }))} placeholder="Select meal category" /></div></FormField>
+        <FormField label="Meal Type" required><div className={viewing ? 'pointer-events-none opacity-60' : undefined}><Dropdown value={form.mealType} onChange={(value) => setForm({ ...form, mealType: value as MealType })} options={mealTypeOptions} /></div></FormField>
         <FormField label="Price Per Pax" required><TextInput disabled={!!viewing} type="number" min="0" value={String(form.pricePerPax)} onChange={(event) => setForm({ ...form, pricePerPax: Number(event.target.value) })} /></FormField>
         <FormField label="Minimum Pax"><TextInput disabled={!!viewing} type="number" min="0" value={String(form.minimumPax)} onChange={(event) => setForm({ ...form, minimumPax: Number(event.target.value) })} /></FormField>
         <FormField label="Maximum Pax"><TextInput disabled={!!viewing} type="number" min="0" value={form.maximumPax === undefined ? '' : String(form.maximumPax)} onChange={(event) => setForm({ ...form, maximumPax: event.target.value === '' ? undefined : Number(event.target.value) })} /></FormField>
         <FormField label="GST Applicable" className={viewing ? 'pointer-events-none opacity-60' : undefined}><Toggle checked={form.gstApplicable} onChange={(value) => setForm({ ...form, gstApplicable: value })} trueLabel="Yes" falseLabel="No" /></FormField>
         <FormField label="GST Rate" className={!form.gstApplicable || !!viewing ? 'pointer-events-none opacity-50' : undefined}><Dropdown value={form.gstRecordId ?? ''} onChange={(value) => setForm({ ...form, gstRecordId: value })} options={activeGstRecords.map((record) => ({ label: `${record.gstCode} (${record.percentage}%)`, value: record.id }))} placeholder="Select GST rate" /></FormField>
-        <FormField label="Status"><Toggle checked={form.status === 'Active'} onChange={(value) => setForm({ ...form, status: value ? 'Active' : 'Inactive' })} trueLabel="Active" falseLabel="Inactive" /></FormField>
+        <FormField label="Status" className={viewing ? 'pointer-events-none opacity-60' : undefined}><Toggle checked={form.status === 'Active'} onChange={(value) => setForm({ ...form, status: value ? 'Active' : 'Inactive' })} trueLabel="Active" falseLabel="Inactive" /></FormField>
         <FormField label="Description" className="sm:col-span-2"><TextArea disabled={!!viewing} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></FormField>
         <FormField label="Included Item Master Items" className="sm:col-span-2">
-          {!viewing && <TextInput value={itemSearch} onChange={(event) => setItemSearch(event.target.value)} placeholder="Search active items..." />}
+          {!viewing && <TextInput value={itemSearch} onChange={(event) => setItemSearch(event.target.value)} placeholder="Search active meal items..." />}
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            <div className="rounded border border-brown-100 p-2"><p className="mb-2 text-xs font-semibold text-brown-500">Available Items</p>{availableItems.map((item) => <button type="button" key={item.id} disabled={!!viewing} onClick={() => setForm({ ...form, itemIds: [...form.itemIds, item.id] })} className="mb-1 block w-full rounded px-2 py-1 text-left text-sm text-brown-700 hover:bg-cream-100 disabled:cursor-default disabled:hover:bg-transparent">{itemLabel(item)}</button>)}</div>
-            <div className="rounded border border-brown-100 p-2"><p className="mb-2 text-xs font-semibold text-brown-500">Selected Items</p>{selectedItems.map((item) => <div key={item.id} className="mb-1 flex items-center justify-between rounded bg-cream-50 px-2 py-1 text-sm text-brown-700"><span>{itemLabel(item)}</span>{!viewing && <button type="button" onClick={() => setForm({ ...form, itemIds: form.itemIds.filter((id) => id !== item.id) })} className="text-maroon-600">Remove</button>}</div>)}</div>
+            <div className="rounded border border-brown-100 p-2"><p className="mb-2 text-xs font-semibold text-brown-500">Available Food Items</p>{availableItems.map((item) => <button type="button" key={item.id} disabled={!!viewing} onClick={() => setForm({ ...form, itemIds: [...form.itemIds, item.id] })} className="mb-1 block w-full rounded px-2 py-1 text-left text-sm text-brown-700 hover:bg-cream-100 disabled:cursor-default disabled:hover:bg-transparent">{itemLabel(item)}</button>)}</div>
+            <div className="rounded border border-brown-100 p-2"><p className="mb-2 text-xs font-semibold text-brown-500">Selected Food Items</p>{selectedItems.map((item) => <div key={item.id} className="mb-1 flex items-center justify-between rounded bg-cream-50 px-2 py-1 text-sm text-brown-700"><span>{itemLabel(item)}{item.status !== 'Active' && <span className="ml-1 text-xs text-brown-400">(Inactive)</span>}</span>{!viewing && <button type="button" onClick={() => setForm({ ...form, itemIds: form.itemIds.filter((id) => id !== item.id) })} className="text-maroon-600">Remove</button>}</div>)}</div>
           </div>
         </FormField>
       </div>
