@@ -44,7 +44,6 @@ const navGroups: NavGroup[] = [
     { label: 'Hall Master', to: '/admin/halls', icon: Building2, perm: 'halls' },
     { label: 'Hall Purpose Master', to: '/admin/hall-purposes', icon: Star, perm: 'halls' },
     { label: 'Hall Package Master', to: '/admin/hall-packages', icon: Package, perm: 'halls' },
-    { label: 'Meal Package Master', to: '/admin/meal-packages', icon: UtensilsCrossed, perm: 'halls' },
     { label: 'Holiday Master', to: '/admin/hall-holidays', icon: Calendar, perm: 'halls' },
     { label: 'Additional Service Master', to: '/admin/hall-services', icon: Megaphone, perm: 'halls' },
     { label: 'Hall Availability', to: '/admin/hall-availability', icon: Calendar, perm: 'halls' },
@@ -53,6 +52,14 @@ const navGroups: NavGroup[] = [
     { label: 'Hall Payments', to: '/admin/hall-payments', icon: Wallet, perm: 'halls' },
     { label: 'Cancellation / Refund', to: '/admin/hall-cancellations', icon: Undo2, perm: 'halls' },
     { label: 'Hall Reports', to: '/admin/hall-reports', icon: BarChart3, perm: 'halls' },
+  ]},
+  { label: 'Meal Management', icon: UtensilsCrossed, perm: 'halls', items: [
+    { label: 'Meal Category Master', to: '/admin/meal-categories', icon: Boxes, perm: 'halls' },
+    { label: 'Meal Package Master', to: '/admin/meal-packages', icon: Package, perm: 'halls' },
+    { label: 'Meal Item Master', to: '/admin/meal-items', icon: UtensilsCrossed, perm: 'halls' },
+    { label: 'Meal Booking Management', to: '/admin/meal-bookings', icon: ShoppingCart, perm: 'halls' },
+    { label: 'Meal Availability', to: '/admin/meal-availability', icon: Calendar, perm: 'halls' },
+    { label: 'Meal Reports', to: '/admin/meal-reports', icon: BarChart3, perm: 'halls' },
   ]},
   { label: 'Transactions', icon: ShoppingCart, perm: 'transactions', items: [
     { label: 'Admin Booking', to: '/admin/bookings', icon: ShoppingCart, perm: 'transactions' },
