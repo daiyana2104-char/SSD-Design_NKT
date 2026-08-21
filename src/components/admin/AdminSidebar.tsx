@@ -39,6 +39,14 @@ const navGroups: NavGroup[] = [
     { label: 'Payment Mode Master', to: '/admin/payment-modes', icon: Wallet, perm: 'masters' },
     { label: 'Unit Master', to: '/admin/units', icon: Layers, perm: 'masters' },
   ]},
+  { label: 'Meal Management', icon: UtensilsCrossed, perm: 'masters', items: [
+    { label: 'Meal Category Master', to: '/admin/meal-categories', icon: Boxes, perm: 'masters' },
+    { label: 'Meal Package Master', to: '/admin/meal-packages', icon: Package, perm: 'masters' },
+    { label: 'Meal Item Master', to: '/admin/meal-items', icon: UtensilsCrossed, perm: 'masters' },
+    { label: 'Meal Booking Management', to: '/admin/meal-bookings', icon: ShoppingCart, perm: 'masters' },
+    { label: 'Meal Availability Management', to: '/admin/meal-availability', icon: Calendar, perm: 'masters' },
+    { label: 'Meal Reports', to: '/admin/meal-reports', icon: BarChart3, perm: 'masters' },
+  ]},
   { label: 'Hall Management', icon: Building2, perm: 'halls', items: [
     { label: 'Hall Category Master', to: '/admin/hall-categories', icon: Boxes, perm: 'halls' },
     { label: 'Hall Master', to: '/admin/halls', icon: Building2, perm: 'halls' },

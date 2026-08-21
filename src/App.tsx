@@ -40,6 +40,8 @@ import { HallPackageMaster } from '@/pages/admin/hall/HallPackageMaster';
 import { HallHolidayMaster } from '@/pages/admin/hall/HallHolidayMaster';
 import { AdditionalServiceMaster } from '@/pages/admin/hall/AdditionalServiceMaster';
 import { HallAvailabilityCalendar } from '@/pages/admin/hall/HallAvailabilityCalendar';
+import { MealPackageManagement } from '@/pages/admin/MealPackages';
+import { MealCategoryMaster, MealItemMaster, MealBookingManagement, MealAvailabilityManagement, MealReports } from '@/pages/admin/MealManagement';
 import { PosProvider } from '@/lib/posStore';
 import { PosLogin } from '@/pages/pos/PosLogin';
 import { PosLayout } from '@/pages/pos/PosLayout';
@@ -87,6 +89,12 @@ export default function App() {
           <Route path="customers/:id" element={<CustomerDetail />} />
           <Route path="payment-modes" element={<PaymentModeMaster />} />
           <Route path="units" element={<UnitMaster />} />
+          <Route path="meal-categories" element={<MealCategoryMaster />} />
+          <Route path="meal-packages" element={<MealPackageManagement />} />
+          <Route path="meal-items" element={<MealItemMaster />} />
+          <Route path="meal-bookings" element={<MealBookingManagement />} />
+          <Route path="meal-availability" element={<MealAvailabilityManagement />} />
+          <Route path="meal-reports" element={<MealReports />} />
           <Route path="hall-categories" element={<HallCategoryMaster />} />
           <Route path="halls" element={<HallMaster />} />
           <Route path="hall-bookings" element={<HallBooking />} />
