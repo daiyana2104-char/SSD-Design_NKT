@@ -1,96 +1,157 @@
-import { useState } from 'react';
-import { Plus, Edit2, Trash2, X, UtensilsCrossed } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Edit, Eye, Plus, Power } from 'lucide-react';
 import { PageHeader, StatusBadge } from '@/components/ui/StatusBadge';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { SearchFilterBar } from '@/components/ui/SearchFilterBar';
-import { Modal, ConfirmModal } from '@/components/ui/Modal';
-import { FormField, TextInput, TextArea, Dropdown } from '@/components/ui/Form';
+import { Pagination } from '@/components/ui/Pagination';
+import { Modal } from '@/components/ui/Modal';
+import { FormField, TextArea, TextInput, Toggle, Dropdown } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
-import { useAdminStore, exportCSV } from '@/lib/adminStore';
+import { gstRecords, items, type Item } from '@/lib/mockData';
+
+type MealType = 'Breakfast' | 'Lunch' | 'Dinner' | 'Snacks' | 'Other';
 
 interface MealPackage {
-  id: string; name: string; code: string; deity: string; gstClass: string; price: number;
-  description: string; status: string; items: { category: string; item: string; qty: number; cost: number }[];
+  id: string;
+  code: string;
+  name: string;
+  mealType: MealType;
+  pricePerPax: number;
+  minimumPax: number;
+  maximumPax?: number;
+  gstApplicable: boolean;
+  gstRate?: number;
+  gstRecordId?: string;
+  description: string;
+  status: 'Active' | 'Inactive';
+  itemIds: string[];
 }
 
-const seedMealPackages: MealPackage[] = [
-  { id: 'mp1', name: 'Annadhanam Package', code: 'MEAL001', deity: 'Lord Shiva', gstClass: 'Exempted', price: 10, description: 'Free meal for devotees', status: 'Active', items: [{ category: 'Prasadam', item: 'Rice', qty: 2, cost: 5 }] },
-  { id: 'mp2', name: 'Special Meal Set', code: 'MEAL002', deity: 'Goddess Durga', gstClass: 'Applicable', price: 15, description: 'Special meal for events', status: 'Active', items: [{ category: 'Prasadam', item: 'Rice', qty: 1, cost: 5 }, { category: 'Prasadam', item: 'Curry', qty: 1, cost: 8 }] },
+const STORAGE_KEY = 'meal_packages';
+const PAGE_SIZE = 8;
+const mealTypeOptions = ['Breakfast', 'Lunch', 'Dinner', 'Snacks', 'Other'].map((value) => ({ label: value, value }));
+const initialPackages: MealPackage[] = [
+  { id: 'mp1', code: 'MEAL001', name: 'Annadhanam Package', mealType: 'Lunch', pricePerPax: 10, minimumPax: 1, gstApplicable: false, description: 'Meal package for devotees.', status: 'Active', itemIds: ['i1'] },
+  { id: 'mp2', code: 'MEAL002', name: 'Special Meal Set', mealType: 'Dinner', pricePerPax: 15, minimumPax: 10, maximumPax: 500, gstApplicable: true, gstRate: 9, gstRecordId: 'g1', description: 'Special meal package for events.', status: 'Active', itemIds: ['i4', 'i5'] },
 ];
 
-export function MealPackageManagement() {
-  const { addAudit } = useAdminStore();
-  const toast = useToast();
-  const [data, setData] = useState<MealPackage[]>(seedMealPackages);
-  const [search, setSearch] = useState('');
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editItem, setEditItem] = useState<MealPackage | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<MealPackage | null>(null);
-  const [form, setForm] = useState<Omit<MealPackage, 'id'>>({ name: '', code: '', deity: 'Lord Shiva', gstClass: 'Exempted', price: 0, description: '', status: 'Active', items: [] });
+function loadPackages() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved ? JSON.parse(saved) as MealPackage[] : initialPackages;
+  } catch {
+    return initialPackages;
+  }
+}
 
-  const filtered = data.filter((d) => d.name.toLowerCase().includes(search.toLowerCase()));
+function savePackages(value: MealPackage[]) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(value)); } catch { /* ignore storage failures */ }
+}
+
+const blankForm = (): Omit<MealPackage, 'id'> => ({
+  code: '', name: '', mealType: 'Breakfast', pricePerPax: 0, minimumPax: 0,
+  maximumPax: undefined, gstApplicable: false, gstRate: undefined, gstRecordId: undefined,
+  description: '', status: 'Active', itemIds: [],
+});
+
+export function MealPackageManagement() {
+  const toast = useToast();
+  const [data, setData] = useState<MealPackage[]>(loadPackages);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<MealPackage | null>(null);
+  const [viewing, setViewing] = useState<MealPackage | null>(null);
+  const [form, setForm] = useState<Omit<MealPackage, 'id'>>(blankForm());
+  const [itemSearch, setItemSearch] = useState('');
+
+  const updateData = (next: MealPackage[]) => { setData(next); savePackages(next); };
+  const activeGstRecords = gstRecords.filter((record) => record.status === 'Active');
+  const activeItems = items.filter((item) => item.status === 'Active');
+
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return data.filter((record) => {
+      const matchesSearch = !query || [record.code, record.name, record.mealType].some((value) => value.toLowerCase().includes(query));
+      return matchesSearch && (!statusFilter || record.status === statusFilter);
+    });
+  }, [data, search, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const openCreate = () => { setEditing(null); setViewing(null); setForm(blankForm()); setItemSearch(''); setModalOpen(true); };
+  const openEdit = (record: MealPackage) => { setEditing(record); setViewing(null); setForm({ ...record }); setItemSearch(''); setModalOpen(true); };
+  const openView = (record: MealPackage) => { setViewing(record); setEditing(null); setForm({ ...record }); setItemSearch(''); setModalOpen(true); };
 
   const handleSave = () => {
-    if (!form.name.trim() || !form.code.trim()) { toast.error('Name and Code are required.'); return; }
-    if (editItem) { setData(data.map((d) => d.id === editItem.id ? { ...d, ...form } : d)); addAudit('Updated Meal Package', 'Meal Management', `Package "${form.name}" updated`); toast.success('Package updated'); }
-    else { setData([...data, { id: 'mp' + Math.random().toString(36).slice(2), ...form }]); addAudit('Created Meal Package', 'Meal Management', `Package "${form.name}" created`); toast.success('Package created'); }
+    const code = form.code.trim();
+    const name = form.name.trim();
+    const price = Number(form.pricePerPax);
+    const minimumPax = Number(form.minimumPax);
+    const maximumPax = form.maximumPax === undefined || form.maximumPax === null || String(form.maximumPax) === '' ? undefined : Number(form.maximumPax);
+    if (!code) return toast.error('Validation Error', 'Package code is required.');
+    if (!name) return toast.error('Validation Error', 'Package name is required.');
+    if (!form.mealType) return toast.error('Validation Error', 'Meal type is required.');
+    if (!Number.isFinite(price) || price <= 0) return toast.error('Validation Error', 'Price per pax must be greater than 0.');
+    if (!Number.isFinite(minimumPax) || minimumPax < 0) return toast.error('Validation Error', 'Minimum pax cannot be negative.');
+    if (maximumPax !== undefined && (!Number.isFinite(maximumPax) || maximumPax < 0 || maximumPax < minimumPax)) return toast.error('Validation Error', 'Maximum pax must be greater than or equal to minimum pax.');
+    if (data.some((record) => record.code.toLowerCase() === code.toLowerCase() && record.id !== editing?.id)) return toast.error('Validation Error', 'Package code must be unique.');
+    if (form.gstApplicable && !form.gstRecordId) return toast.error('Validation Error', 'Select an applicable GST rate.');
+
+    const gst = activeGstRecords.find((record) => record.id === form.gstRecordId);
+    const record: MealPackage = { ...form, id: editing?.id ?? `mp-${Math.random().toString(36).slice(2)}`, code, name, pricePerPax: price, minimumPax, maximumPax, gstRate: form.gstApplicable ? gst?.percentage : undefined, gstRecordId: form.gstApplicable ? form.gstRecordId : undefined };
+    updateData(editing ? data.map((item) => item.id === editing.id ? record : item) : [...data, record]);
+    toast.success(editing ? 'Meal package updated' : 'Meal package created');
     setModalOpen(false);
   };
 
+  const toggleStatus = (record: MealPackage) => {
+    updateData(data.map((item) => item.id === record.id ? { ...item, status: item.status === 'Active' ? 'Inactive' : 'Active' } : item));
+    toast.success(record.status === 'Active' ? 'Meal package deactivated' : 'Meal package activated');
+  };
+
+  const selectedItems = activeItems.filter((item) => form.itemIds.includes(item.id));
+  const availableItems = activeItems.filter((item) => !form.itemIds.includes(item.id) && `${item.code} ${item.name} ${item.category}`.toLowerCase().includes(itemSearch.toLowerCase()));
+  const itemLabel = (item: Item) => `${item.name} (${item.code})`;
   const columns: Column<MealPackage>[] = [
-    { key: 'name', header: 'Package Name', render: (d) => <span className="font-medium text-brown-800">{d.name}</span> },
-    { key: 'code', header: 'Code' },
-    { key: 'deity', header: 'Deity' },
-    { key: 'price', header: 'Price', align: 'right', render: (d) => `S$${d.price.toFixed(2)}` },
-    { key: 'gstClass', header: 'GST' },
-    { key: 'status', header: 'Status', render: (d) => <StatusBadge status={d.status} /> },
-    { key: 'actions', header: 'Actions', align: 'center', render: (d) => (
-      <div className="flex justify-center gap-1">
-        <button onClick={() => { setEditItem(d); setForm({ ...d }); setModalOpen(true); }} className="rounded p-1.5 text-brown-500 hover:bg-cream-100"><Edit2 className="h-4 w-4" /></button>
-        <button onClick={() => setDeleteTarget(d)} className="rounded p-1.5 text-red-400 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
-      </div>
-    ) },
+    { key: 'code', header: 'Package Code' },
+    { key: 'name', header: 'Package Name', render: (record) => <span className="font-medium text-brown-800">{record.name}</span> },
+    { key: 'mealType', header: 'Meal Type' },
+    { key: 'price', header: 'Price / Pax', align: 'right', render: (record) => `S$${record.pricePerPax.toFixed(2)}` },
+    { key: 'minimumPax', header: 'Minimum Pax', align: 'right' },
+    { key: 'gst', header: 'GST', render: (record) => record.gstApplicable ? `${record.gstRate ?? 0}%` : 'No' },
+    { key: 'status', header: 'Status', render: (record) => <StatusBadge status={record.status} /> },
+    { key: 'actions', header: 'Actions', align: 'center', render: (record) => <div className="flex justify-center gap-1"><button type="button" onClick={() => openView(record)} className="rounded p-1.5 text-brown-500 hover:bg-cream-100 hover:text-maroon-600" title="View"><Eye className="h-4 w-4" /></button><button type="button" onClick={() => openEdit(record)} className="rounded p-1.5 text-brown-500 hover:bg-cream-100 hover:text-maroon-600" title="Edit"><Edit className="h-4 w-4" /></button><button type="button" onClick={() => toggleStatus(record)} className="rounded p-1.5 text-brown-500 hover:bg-cream-100 hover:text-maroon-600" title={record.status === 'Active' ? 'Deactivate' : 'Activate'}><Power className="h-4 w-4" /></button></div> },
   ];
 
-  return (
-    <div>
-      <PageHeader title="Meal Packages" description="Manage meal packages for hall bookings"
-        actions={<><button className="btn-outline" onClick={() => exportCSV('meal-packages.csv', ['Name', 'Code', 'Deity', 'Price', 'GST', 'Status'], filtered.map((d) => [d.name, d.code, d.deity, d.price, d.gstClass, d.status]))}>Export CSV</button>
-        <button className="btn-primary" onClick={() => { setEditItem(null); setForm({ name: '', code: '', deity: 'Lord Shiva', gstClass: 'Exempted', price: 0, description: '', status: 'Active', items: [] }); setModalOpen(true); }}><Plus className="h-4 w-4" /> Add Package</button></>} />
-      <div className="card p-4"><SearchFilterBar search={search} onSearch={setSearch} /></div>
-      <div className="card mt-4"><DataTable columns={columns} data={filtered} /></div>
+  return <div>
+    <PageHeader title="Meal Package Master" description="Create and manage meal packages" actions={<button type="button" className="btn-primary" onClick={openCreate}><Plus className="h-4 w-4" />Add Package</button>} />
+    <div className="card p-4"><SearchFilterBar search={search} onSearch={(value) => { setSearch(value); setPage(1); }} searchPlaceholder="Search package code, name or meal type..." filters={[{ label: 'Status', value: statusFilter, options: [{ label: 'All Statuses', value: '' }, { label: 'Active', value: 'Active' }, { label: 'Inactive', value: 'Inactive' }], onChange: (value) => { setStatusFilter(value); setPage(1); } }]} /></div>
+    <div className="card mt-4"><DataTable columns={columns} data={paged} /><Pagination page={page} totalPages={totalPages} onPage={setPage} totalItems={filtered.length} pageSize={PAGE_SIZE} /></div>
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editItem ? 'Edit Meal Package' : 'Add Meal Package'} size="xl"
-        footer={<><button className="btn-outline" onClick={() => setModalOpen(false)}>Cancel</button><button className="btn-primary" onClick={handleSave}>Save</button></>}>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="Package Name" required><TextInput value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></FormField>
-            <FormField label="Package Code" required><TextInput value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} /></FormField>
-            <FormField label="Deity"><Dropdown value={form.deity} onChange={(v) => setForm({ ...form, deity: v })} options={['Lord Shiva', 'Goddess Durga', 'Lord Ganesha', 'Lord Murugan'].map((d) => ({ label: d, value: d }))} /></FormField>
-            <FormField label="GST Classification"><Dropdown value={form.gstClass} onChange={(v) => setForm({ ...form, gstClass: v })} options={[{ label: 'Applicable', value: 'Applicable' }, { label: 'Exempted', value: 'Exempted' }, { label: 'Out of Scope', value: 'Out of Scope' }]} /></FormField>
-            <FormField label="Price"><TextInput type="number" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} /></FormField>
-            <FormField label="Status"><Dropdown value={form.status} onChange={(v) => setForm({ ...form, status: v })} options={[{ label: 'Active', value: 'Active' }, { label: 'Inactive', value: 'Inactive' }]} /></FormField>
+    <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={viewing ? 'View Meal Package' : editing ? 'Edit Meal Package' : 'Add Meal Package'} size="xl" footer={viewing ? <button type="button" className="btn-outline" onClick={() => setModalOpen(false)}>Close</button> : <><button type="button" className="btn-outline" onClick={() => setModalOpen(false)}>Cancel</button><button type="button" className="btn-primary" onClick={handleSave}>Save</button></>}>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <FormField label="Package Code" required><TextInput disabled={!!viewing} value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value })} /></FormField>
+        <FormField label="Package Name" required><TextInput disabled={!!viewing} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></FormField>
+        <FormField label="Meal Type" required><Dropdown value={form.mealType} onChange={(value) => setForm({ ...form, mealType: value as MealType })} options={mealTypeOptions} /></FormField>
+        <FormField label="Price Per Pax" required><TextInput disabled={!!viewing} type="number" min="0" value={String(form.pricePerPax)} onChange={(event) => setForm({ ...form, pricePerPax: Number(event.target.value) })} /></FormField>
+        <FormField label="Minimum Pax"><TextInput disabled={!!viewing} type="number" min="0" value={String(form.minimumPax)} onChange={(event) => setForm({ ...form, minimumPax: Number(event.target.value) })} /></FormField>
+        <FormField label="Maximum Pax"><TextInput disabled={!!viewing} type="number" min="0" value={form.maximumPax === undefined ? '' : String(form.maximumPax)} onChange={(event) => setForm({ ...form, maximumPax: event.target.value === '' ? undefined : Number(event.target.value) })} /></FormField>
+        <FormField label="GST Applicable" className={viewing ? 'pointer-events-none opacity-60' : undefined}><Toggle checked={form.gstApplicable} onChange={(value) => setForm({ ...form, gstApplicable: value })} trueLabel="Yes" falseLabel="No" /></FormField>
+        <FormField label="GST Rate" className={!form.gstApplicable || !!viewing ? 'pointer-events-none opacity-50' : undefined}><Dropdown value={form.gstRecordId ?? ''} onChange={(value) => setForm({ ...form, gstRecordId: value })} options={activeGstRecords.map((record) => ({ label: `${record.gstCode} (${record.percentage}%)`, value: record.id }))} placeholder="Select GST rate" /></FormField>
+        <FormField label="Status"><Toggle checked={form.status === 'Active'} onChange={(value) => setForm({ ...form, status: value ? 'Active' : 'Inactive' })} trueLabel="Active" falseLabel="Inactive" /></FormField>
+        <FormField label="Description" className="sm:col-span-2"><TextArea disabled={!!viewing} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></FormField>
+        <FormField label="Included Item Master Items" className="sm:col-span-2">
+          {!viewing && <TextInput value={itemSearch} onChange={(event) => setItemSearch(event.target.value)} placeholder="Search active items..." />}
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            <div className="rounded border border-brown-100 p-2"><p className="mb-2 text-xs font-semibold text-brown-500">Available Items</p>{availableItems.map((item) => <button type="button" key={item.id} disabled={!!viewing} onClick={() => setForm({ ...form, itemIds: [...form.itemIds, item.id] })} className="mb-1 block w-full rounded px-2 py-1 text-left text-sm text-brown-700 hover:bg-cream-100 disabled:cursor-default disabled:hover:bg-transparent">{itemLabel(item)}</button>)}</div>
+            <div className="rounded border border-brown-100 p-2"><p className="mb-2 text-xs font-semibold text-brown-500">Selected Items</p>{selectedItems.map((item) => <div key={item.id} className="mb-1 flex items-center justify-between rounded bg-cream-50 px-2 py-1 text-sm text-brown-700"><span>{itemLabel(item)}</span>{!viewing && <button type="button" onClick={() => setForm({ ...form, itemIds: form.itemIds.filter((id) => id !== item.id) })} className="text-maroon-600">Remove</button>}</div>)}</div>
           </div>
-          <FormField label="Description"><TextArea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></FormField>
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <label className="label mb-0">Items</label>
-              <button onClick={() => setForm({ ...form, items: [...form.items, { category: 'Prasadam', item: '', qty: 1, cost: 0 }] })} className="btn-outline px-3 py-1 text-xs"><Plus className="h-3 w-3" /> Add Item</button>
-            </div>
-            {form.items.map((it, i) => (
-              <div key={i} className="mb-2 flex gap-2">
-                <TextInput value={it.item} onChange={(e) => setForm({ ...form, items: form.items.map((x, idx) => idx === i ? { ...x, item: e.target.value } : x) })} placeholder="Item name" />
-                <div className="w-24"><TextInput type="number" value={it.qty} onChange={(e) => setForm({ ...form, items: form.items.map((x, idx) => idx === i ? { ...x, qty: Number(e.target.value) } : x) })} placeholder="Qty" /></div>
-                <div className="w-24"><TextInput type="number" value={it.cost} onChange={(e) => setForm({ ...form, items: form.items.map((x, idx) => idx === i ? { ...x, cost: Number(e.target.value) } : x) })} placeholder="Cost" /></div>
-                <button onClick={() => setForm({ ...form, items: form.items.filter((_, idx) => idx !== i) })} className="rounded p-2 text-red-400 hover:bg-red-50"><X className="h-4 w-4" /></button>
-              </div>
-            ))}
-          </div>
-        </div>
-      </Modal>
-
-      <ConfirmModal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={() => { if (deleteTarget) { setData(data.filter((d) => d.id !== deleteTarget.id)); toast.success('Package deleted'); } setDeleteTarget(null); }}
-        title="Delete Package" message={`Delete "${deleteTarget?.name}"?`} confirmLabel="Delete" variant="danger" />
-    </div>
-  );
+        </FormField>
+      </div>
+    </Modal>
+  </div>;
 }
+
+export default MealPackageManagement;
