@@ -7,7 +7,8 @@ import { Pagination } from '@/components/ui/Pagination';
 import { Modal } from '@/components/ui/Modal';
 import { FormField, TextInput } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
-import { hallPayments as initialPayments, hallBookings as bookings, type HallPayment } from '@/lib/mockData';
+import { type HallPayment } from '@/lib/mockData';
+import { hallPayments as initialPayments, hallBookings as bookings } from '@/lib/hallData';
 
 const PAGE_SIZE = 8;
 
@@ -52,7 +53,7 @@ export function HallPayments() {
       <PageHeader title="Hall Payments" description="Manage payments for hall bookings" actions={<button type="button" className="btn-primary" onClick={openCreate}><Plus className="h-4 w-4"/>Add Payment</button>} />
 
       <div className="card p-4">
-        <SearchFilterBar search={search} onSearch={(v) => { setSearch(v); setPage(1); }} placeholder="Search payments..." filters={[]} />
+        <SearchFilterBar search={search} onSearch={(v) => { setSearch(v); setPage(1); }} searchPlaceholder="Search payments..." filters={[]} />
       </div>
 
       <div className="card mt-4">

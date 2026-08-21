@@ -7,13 +7,21 @@ import { Pagination } from '@/components/ui/Pagination';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { FormField, TextInput, Toggle, MultiSelect } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
-import { customers, halls as initialHalls, hallPackages as packages, hallBookings as initialBookings, type HallBooking, type Hall } from '@/lib/mockData';
+import { customers, halls as initialHalls, hallPackages as packages, type HallBooking, type Hall } from '@/lib/mockData';
+import { hallBookings as initialBookings, type HallBookingRecord } from '@/lib/hallData';
 
 const PAGE_SIZE = 8;
 
+function formatTime(value: string) {
+  const [hours, minutes] = value.split(':').map(Number);
+  const suffix = hours >= 12 ? 'PM' : 'AM';
+  const displayHour = hours % 12 || 12;
+  return `${displayHour}:${String(minutes).padStart(2, '0')} ${suffix}`;
+}
+
 export function HallBooking() {
   const toast = useToast();
-  const [bookings, setBookings] = useState<HallBooking[]>(initialBookings);
+  const [bookings, setBookings] = useState<HallBookingRecord[]>(initialBookings);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
@@ -70,7 +78,7 @@ export function HallBooking() {
     }
 
     const deposit = form.depositAmount ?? 0;
-    const newBooking: HallBooking = {
+    const newBooking: HallBookingRecord = {
       id: 'hb-' + Math.random().toString(36).slice(2),
       bookingRef: form.bookingRef as string,
       customerId: form.customerId as string,
@@ -87,6 +95,15 @@ export function HallBooking() {
       paidAmount: 0,
       depositAmount: deposit,
       createdAt: new Date().toISOString(),
+      customerName: customers.find(c => c.id === form.customerId)?.name ?? '',
+      mobileNumber: customers.find(c => c.id === form.customerId)?.mobile ?? '',
+      eventName: '',
+      hallName: initialHalls.filter(h => selectedHallIds.includes(h.id)).map(h => h.name).join(', '),
+      hallPackage: packages.find(p => p.id === form.packageId)?.name ?? '',
+      hallPurpose: '',
+      amount: total,
+      paymentStatus: 'Pending',
+      bookingStatus: 'Pending',
     };
 
     setBookings(prev => [...prev, newBooking]);
@@ -105,10 +122,10 @@ export function HallBooking() {
   const columns: Column<HallBooking>[] = [
     { key: 'ref', header: 'Booking Ref', render: (b) => <span className="font-medium text-brown-800">{b.bookingRef}</span> },
     { key: 'customer', header: 'Customer', render: (b) => customers.find(c => c.id === b.customerId)?.name ?? '' },
-    { key: 'event', header: 'Event Date', render: (b) => `${b.eventDate} ${b.startTime}-${b.endTime}` },
-    { key: 'halls', header: 'Halls', render: (b) => (b.hallIds && b.hallIds.length ? b.hallIds.map(id => initialHalls.find(h => h.id === id)?.name).filter(Boolean).join(', ') : '—') },
-    { key: 'amount', header: 'Amount', align: 'right', render: (b) => b.totalAmount },
-    { key: 'status', header: 'Status', render: (b) => <StatusBadge status={b.status as any} /> },
+    { key: 'event', header: 'Event Date', render: (b) => `${b.eventDate} ${formatTime(b.startTime)}-${formatTime(b.endTime)}` },
+    { key: 'hall', header: 'Hall', render: (b) => b.hallName },
+    { key: 'amount', header: 'Amount', align: 'right', render: (b) => b.amount },
+    { key: 'status', header: 'Status', render: (b) => <StatusBadge status={b.bookingStatus} /> },
     { key: 'actions', header: 'Actions', align: 'center', render: (b) => (
       <div className="flex justify-center gap-1">
         <button type="button" onClick={() => { setEditing(b); setForm(b); setModalOpen(true); }} className="rounded p-1.5 text-brown-500 hover:bg-cream-100 hover:text-maroon-600" title="Edit"><Edit className="h-4 w-4"/></button>
@@ -123,7 +140,7 @@ export function HallBooking() {
       <PageHeader title="Hall Booking" description="Create and manage hall bookings" actions={<button type="button" className="btn-primary" onClick={openCreate}><Plus className="h-4 w-4"/>Add Booking</button>} />
 
       <div className="card p-4">
-        <SearchFilterBar search={search} onSearch={(v) => { setSearch(v); setPage(1); }} placeholder="Search booking ref..." filters={[]} />
+        <SearchFilterBar search={search} onSearch={(v) => { setSearch(v); setPage(1); }} searchPlaceholder="Search booking ref..." filters={[]} />
       </div>
 
       <div className="card mt-4">

@@ -1,9 +1,16 @@
 import { useMemo, useState } from 'react';
 import { PageHeader } from '@/components/ui/StatusBadge';
-import { halls as initialHalls, hallBookings as bookings } from '@/lib/mockData';
+import { halls as initialHalls } from '@/lib/mockData';
+import { hallBookings as bookings } from '@/lib/hallData';
 
 function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 1); }
 function endOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth() + 1, 0); }
+function formatTime(value: string) {
+  const [hours, minutes] = value.split(':').map(Number);
+  const suffix = hours >= 12 ? 'PM' : 'AM';
+  const displayHour = hours % 12 || 12;
+  return `${displayHour}:${String(minutes).padStart(2, '0')} ${suffix}`;
+}
 
 export function HallAvailabilityCalendar() {
   const [current, setCurrent] = useState(new Date());
@@ -62,7 +69,7 @@ export function HallAvailabilityCalendar() {
               <div key={key} className="min-h-[80px] rounded border border-brown-100 p-2 bg-white">
                 <div className="text-sm font-medium text-brown-700">{day.getDate()}</div>
                 <div className="mt-1 text-xs text-brown-500">
-                  {list.length === 0 ? <span className="text-brown-300">No bookings</span> : list.slice(0,3).map(b => <div key={b.id} className="rounded bg-maroon-50 px-1 py-0.5 text-maroon-700 mb-1 text-xs">{b.bookingRef} ({b.startTime}-{b.endTime})</div>)}
+                  {list.length === 0 ? <span className="text-brown-300">No bookings</span> : list.slice(0,3).map(b => <div key={b.id} className="rounded bg-maroon-50 px-1 py-0.5 text-maroon-700 mb-1 text-xs">{b.hallName}<br />{formatTime(b.startTime)} - {formatTime(b.endTime)}<br />{b.bookingStatus}</div>)}
                   {list.length > 3 && <div className="text-xs text-brown-400">+{list.length - 3} more</div>}
                 </div>
               </div>

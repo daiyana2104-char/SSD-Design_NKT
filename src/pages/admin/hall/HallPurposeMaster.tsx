@@ -5,7 +5,7 @@ import { DataTable, type Column } from '@/components/ui/DataTable';
 import { SearchFilterBar } from '@/components/ui/SearchFilterBar';
 import { Pagination } from '@/components/ui/Pagination';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
-import { FormField, TextInput } from '@/components/ui/Form';
+import { FormField, TextInput, Toggle } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
 import { hallPurposes as initial, type HallPurpose } from '@/lib/mockData';
 
@@ -67,7 +67,7 @@ export function HallPurposeMaster() {
     <div>
       <PageHeader title="Hall Purpose Master" description="Manage purposes for hall bookings" actions={<button type="button" className="btn-primary" onClick={openCreate}><Plus className="h-4 w-4"/>Add Purpose</button>} />
 
-      <div className="card p-4"><SearchFilterBar search={search} onSearch={(v) => { setSearch(v); setPage(1); }} placeholder="Search purpose..." filters={[]} /></div>
+      <div className="card p-4"><SearchFilterBar search={search} onSearch={(v) => { setSearch(v); setPage(1); }} searchPlaceholder="Search purpose..." filters={[]} /></div>
 
       <div className="card mt-4"><DataTable columns={columns} data={paged} /><Pagination page={page} totalPages={totalPages} onPage={setPage} totalItems={filtered.length} pageSize={PAGE_SIZE} /></div>
 

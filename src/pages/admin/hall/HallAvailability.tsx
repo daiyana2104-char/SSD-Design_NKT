@@ -3,9 +3,17 @@ import { PageHeader } from '@/components/ui/StatusBadge';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { SearchFilterBar } from '@/components/ui/SearchFilterBar';
 import { Pagination } from '@/components/ui/Pagination';
-import { halls as initialHalls, hallBookings as initialBookings, hallCategories as categories } from '@/lib/mockData';
+import { halls as initialHalls, hallCategories as categories } from '@/lib/mockData';
+import { hallBookings as initialBookings, type HallBookingRecord } from '@/lib/hallData';
 
 const PAGE_SIZE = 12;
+
+function formatTime(value: string) {
+  const [hours, minutes] = value.split(':').map(Number);
+  const suffix = hours >= 12 ? 'PM' : 'AM';
+  const displayHour = hours % 12 || 12;
+  return `${displayHour}:${String(minutes).padStart(2, '0')} ${suffix}`;
+}
 
 export function HallAvailability() {
   const [date, setDate] = useState(new Date().toISOString().slice(0,10));
@@ -23,11 +31,11 @@ export function HallAvailability() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const columns: Column<any>[] = [
+  const columns: Column<HallBookingRecord>[] = [
     { key: 'ref', header: 'Booking Ref', render: (b) => b.bookingRef },
-    { key: 'halls', header: 'Halls', render: (b) => (b.hallIds && b.hallIds.length ? b.hallIds.map(id => initialHalls.find(h => h.id === id)?.name).filter(Boolean).join(', ') : '—') },
-    { key: 'time', header: 'Time', render: (b) => `${b.startTime}-${b.endTime}` },
-    { key: 'status', header: 'Status', render: (b) => b.status },
+    { key: 'hall', header: 'Hall', render: (b) => b.hallName },
+    { key: 'time', header: 'Time', render: (b) => `${formatTime(b.startTime)} - ${formatTime(b.endTime)}` },
+    { key: 'status', header: 'Status', render: (b) => b.bookingStatus },
   ];
 
   return (
@@ -59,7 +67,7 @@ export function HallAvailability() {
         </div>
 
         <div className="mt-4">
-          <SearchFilterBar search={search} onSearch={(v) => { setSearch(v); setPage(1); }} placeholder="Search booking ref..." filters={[]} />
+          <SearchFilterBar search={search} onSearch={(v) => { setSearch(v); setPage(1); }} searchPlaceholder="Search booking ref..." filters={[]} />
         </div>
       </div>
 
