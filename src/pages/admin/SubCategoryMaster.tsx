@@ -90,8 +90,8 @@ export function SubCategoryMaster() {
               <TextInput value={(form.colour ?? '').toUpperCase()} onChange={(e) => setForm({ ...form, colour: e.target.value })} placeholder="#942237" className="flex-1" />
             </div>
           </FormField>
-          <FormField label="Status"><div className="pt-2"><Toggle checked={status === 'Active'} onChange={(v) => setStatus(v ? 'Active' : 'Inactive')} label={status} /></div></FormField>
           <FormField label="Description" className="sm:col-span-2"><TextArea value={form.description ?? ''} onChange={(e) => setForm({ ...form, description: e.target.value })} /></FormField>
+          <FormField label="Status" className="sm:col-span-2"><div className="pt-2"><Toggle checked={status === 'Active'} onChange={(v) => setStatus(v ? 'Active' : 'Inactive')} label={status} /></div></FormField>
         </div>
       </Modal>
 

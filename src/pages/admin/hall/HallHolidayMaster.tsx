@@ -78,9 +78,9 @@ export function HallHolidayMaster() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Edit Holiday' : 'Add Holiday'} size="md" footer={<><button type="button" className="btn-outline" onClick={() => setModalOpen(false)}>Cancel</button><button type="button" className="btn-primary" onClick={handleSave}>Save</button></> }>
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField label="Holiday Name" required><TextInput value={form.name ?? ''} onChange={(e) => setForm({ ...form, name: e.target.value })} /></FormField>
-          <FormField label="Status"><Toggle checked={form.status === 'Active'} onChange={(v) => setForm({ ...form, status: v ? 'Active' : 'Inactive' })} trueLabel="Active" falseLabel="Inactive" /></FormField>
           <FormField label="From Date/Time" required className="sm:col-span-2"><TextInput type="datetime-local" value={form.start ?? ''} onChange={(e) => setForm({ ...form, start: e.target.value })} /></FormField>
           <FormField label="To Date/Time" required className="sm:col-span-2"><TextInput type="datetime-local" value={form.end ?? ''} onChange={(e) => setForm({ ...form, end: e.target.value })} /></FormField>
+          <FormField label="Status"><Toggle checked={form.status === 'Active'} onChange={(v) => setForm({ ...form, status: v ? 'Active' : 'Inactive' })} trueLabel="Active" falseLabel="Inactive" /></FormField>
         </div>
       </Modal>
 

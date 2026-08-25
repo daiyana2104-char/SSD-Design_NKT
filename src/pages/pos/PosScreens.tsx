@@ -293,8 +293,8 @@ export function PosTransactionDetail() {
             <FormField label="Refund Mode"><Dropdown value={refundData.refundMode} onChange={(v) => setRefundData({ ...refundData, refundMode: v })} options={[{ label: 'Cash', value: 'Cash' }, { label: 'PayNow', value: 'PayNow' }, { label: 'NETS', value: 'NETS' }, { label: 'Cheque', value: 'Cheque' }]} /></FormField>
             <FormField label="Refund Date"><TextInput type="date" value={refundData.refundDate} onChange={(e) => setRefundData({ ...refundData, refundDate: e.target.value })} /></FormField>
             <FormField label="Refund Reference"><TextInput value={refundData.refundRef} onChange={(e) => setRefundData({ ...refundData, refundRef: e.target.value })} /></FormField>
-            <FormField label="Refund Status"><Dropdown value={refundData.refundStatus} onChange={(v) => setRefundData({ ...refundData, refundStatus: v })} options={[{ label: 'Not Applicable', value: 'Not Applicable' }, { label: 'Pending', value: 'Pending' }, { label: 'Processed', value: 'Processed' }]} /></FormField>
             <FormField label="Remarks" className="col-span-2"><TextArea value={refundData.remarks} onChange={(e) => setRefundData({ ...refundData, remarks: e.target.value })} /></FormField>
+            <FormField label="Refund Status" className="col-span-2"><Dropdown value={refundData.refundStatus} onChange={(v) => setRefundData({ ...refundData, refundStatus: v })} options={[{ label: 'Not Applicable', value: 'Not Applicable' }, { label: 'Pending', value: 'Pending' }, { label: 'Processed', value: 'Processed' }]} /></FormField>
           </div>
         </div>
       </Modal>

@@ -7,7 +7,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { FormField, TextInput, Toggle, MultiSelect } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
-import { customers, halls as initialHalls, hallPackages as packages, type HallBooking, type Hall } from '@/lib/mockData';
+import { customers, halls as initialHalls, hallPackages as packages, hallPurposes, holidays, type HallBooking, type Hall } from '@/lib/mockData';
 import { hallBookings as initialBookings, type HallBookingRecord } from '@/lib/hallData';
 
 const PAGE_SIZE = 8;
@@ -54,6 +54,11 @@ export function HallBooking() {
 
     const selectedHallIds = form.hallIds ?? [];
     if (selectedHallIds.length === 0) return toast.error('Validation Error', 'Select at least one hall or package.');
+    if (form.startTime >= form.endTime) return toast.error('Validation Error', 'Start Time must be before End Time.');
+    if (!Number.isFinite(Number(form.guests)) || Number(form.guests) <= 0) return toast.error('Validation Error', 'Number of Guests is required.');
+    if (selectedHallIds.some((id) => Number(form.guests) > (initialHalls.find((hall) => hall.id === id)?.seatingCapacity ?? 0))) return toast.error('Validation Error', 'Guests cannot exceed the selected hall capacity.');
+    if (holidays.some((holiday) => holiday.status === 'Active' && new Date(`${form.eventDate}T${form.endTime}`) > new Date(holiday.start) && new Date(`${form.eventDate}T${form.startTime}`) < new Date(holiday.end))) return toast.error('Availability', 'The selected time is blocked by a holiday.');
+    if (selectedHallIds.some((id) => initialHalls.find((hall) => hall.id === id)?.status !== 'Active')) return toast.error('Validation Error', 'Only active halls can be booked.');
 
     // availability check
     for (const hid of selectedHallIds) {
@@ -114,8 +119,8 @@ export function HallBooking() {
 
   const handleDelete = () => {
     if (!deleteTarget) return;
-    setBookings(prev => prev.filter(b => b.id !== deleteTarget.id));
-    toast.success('Booking removed');
+    setBookings(prev => prev.map(b => b.id === deleteTarget.id ? { ...b, status: 'Cancelled', bookingStatus: 'Cancelled' } : b));
+    toast.success('Booking cancelled');
     setDeleteTarget(null);
   };
 
@@ -151,13 +156,13 @@ export function HallBooking() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Edit Booking' : 'Add Booking'} size="lg" footer={<><button type="button" className="btn-outline" onClick={() => setModalOpen(false)}>Cancel</button><button type="button" className="btn-primary" onClick={handleSave}>Save</button></>}>
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField label="Booking Ref" required>
-            <TextInput value={form.bookingRef ?? ''} onChange={(e) => setForm({ ...form, bookingRef: e.target.value })} />
+            <TextInput value={form.bookingRef ?? ''} readOnly />
           </FormField>
 
           <FormField label="Customer" required>
             <select value={form.customerId ?? ''} onChange={(e) => setForm({ ...form, customerId: e.target.value })} className="input">
               <option value="">Select customer</option>
-              {customers.map(c => <option key={c.id} value={c.id}>{c.name} - {c.mobile}</option>)}
+              {customers.filter(c => c.status === 'Active').map(c => <option key={c.id} value={c.id}>{c.name} - {c.mobile}</option>)}
             </select>
           </FormField>
 
@@ -180,7 +185,7 @@ export function HallBooking() {
               setForm({ ...form, packageId: pkgId, hallIds: pkg ? pkg.halls : [] });
             }} className="input">
               <option value="">Select package</option>
-              {packages.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              {packages.filter(p => p.status === 'Active').map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </FormField>
 
@@ -200,6 +205,14 @@ export function HallBooking() {
 
           <FormField label="Meals Required">
             <Toggle checked={!!form.mealsRequired} onChange={(v) => setForm({ ...form, mealsRequired: v })} label={form.mealsRequired ? 'Yes' : 'No'} />
+          </FormField>
+
+          <FormField label="Hall Purpose">
+            <select value={form.purpose ?? ''} onChange={(e) => setForm({ ...form, purpose: e.target.value })} className="input"><option value="">Select purpose</option>{hallPurposes.filter(p => p.status === 'Active').map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+          </FormField>
+
+          <FormField label="Booking Status">
+            <select value={form.status ?? 'Booked'} onChange={(e) => setForm({ ...form, status: e.target.value as HallBooking['status'] })} className="input"><option value="Booked">Draft</option><option value="Paid">Confirmed</option><option value="Cancelled">Cancelled</option><option value="Completed">Completed</option></select>
           </FormField>
 
         </div>

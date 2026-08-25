@@ -33,7 +33,7 @@ export function HallMaster() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ code: '', name: '', categoryId: categories.find(c => c.status === 'Active')?.id ?? '', seatingCapacity: 0, minBookingHours: 1, hourlyRate: 0, depositApplicable: false, depositAmount: 0, additionalHourRate: 0, images: [], floorPlan: '', status: 'Active' });
+    setForm({ code: '', name: '', categoryId: categories.find(c => c.status === 'Active')?.id ?? '', seatingCapacity: 0, minBookingHours: 1, hourlyRate: 0, depositApplicable: false, depositAmount: 0, additionalHourRate: 0, images: [], status: 'Active' });
     setStatus('Active');
     setModalOpen(true);
   };
@@ -65,11 +65,11 @@ export function HallMaster() {
     const normalizedStatus = status ?? 'Active';
 
     if (editing) {
-      const updated: Hall = { ...editing, code, name, categoryId, level: form.level ?? editing.level ?? '', seatingCapacity: Number(form.seatingCapacity ?? editing.seatingCapacity ?? 0), minBookingHours: Number(form.minBookingHours ?? editing.minBookingHours ?? 1), hourlyRate: Number(form.hourlyRate ?? editing.hourlyRate ?? 0), depositApplicable: !!form.depositApplicable, depositAmount: form.depositApplicable ? Number(form.depositAmount ?? editing.depositAmount ?? 0) : 0, additionalHourRate: Number(form.additionalHourRate ?? editing.additionalHourRate ?? 0), images: form.images ?? editing.images ?? [], floorPlan: form.floorPlan ?? editing.floorPlan ?? '', status: normalizedStatus };
+      const updated: Hall = { ...editing, code, name, categoryId, level: form.level ?? editing.level ?? '', seatingCapacity: Number(form.seatingCapacity ?? editing.seatingCapacity ?? 0), minBookingHours: Number(form.minBookingHours ?? editing.minBookingHours ?? 1), hourlyRate: Number(form.hourlyRate ?? editing.hourlyRate ?? 0), depositApplicable: !!form.depositApplicable, depositAmount: form.depositApplicable ? Number(form.depositAmount ?? editing.depositAmount ?? 0) : 0, additionalHourRate: Number(form.additionalHourRate ?? editing.additionalHourRate ?? 0), images: form.images ?? editing.images ?? [], status: normalizedStatus };
       setData((prev) => prev.map((r) => (r.id === editing.id ? updated : r)));
       toast.success('Hall updated');
     } else {
-      const newRec: Hall = { id: 'h-' + Math.random().toString(36).slice(2), code, name, categoryId, level: form.level ?? '', seatingCapacity: Number(form.seatingCapacity ?? 0), minBookingHours: Number(form.minBookingHours ?? 1), hourlyRate: Number(form.hourlyRate ?? 0), depositApplicable: !!form.depositApplicable, depositAmount: form.depositApplicable ? Number(form.depositAmount ?? 0) : 0, additionalHourRate: Number(form.additionalHourRate ?? 0), images: form.images ?? [], floorPlan: form.floorPlan ?? '', status: normalizedStatus };
+      const newRec: Hall = { id: 'h-' + Math.random().toString(36).slice(2), code, name, categoryId, level: form.level ?? '', seatingCapacity: Number(form.seatingCapacity ?? 0), minBookingHours: Number(form.minBookingHours ?? 1), hourlyRate: Number(form.hourlyRate ?? 0), depositApplicable: !!form.depositApplicable, depositAmount: form.depositApplicable ? Number(form.depositAmount ?? 0) : 0, additionalHourRate: Number(form.additionalHourRate ?? 0), images: form.images ?? [], status: normalizedStatus };
       setData((prev) => [...prev, newRec]);
       toast.success('Hall created');
     }
@@ -156,14 +156,6 @@ export function HallMaster() {
             </div>
           </FormField>
 
-          <FormField label="Floor Plan" className="sm:col-span-2">
-            <FileUpload accept="image/*,application/pdf" preview={form.floorPlan ?? ''} onFile={(f) => { const url = URL.createObjectURL(f); setForm({ ...form, floorPlan: url }); }} />
-          </FormField>
-
-          <FormField label="Status">
-            <div className="pt-1"><Toggle checked={status === 'Active'} onChange={(v) => { setStatus(v ? 'Active' : 'Inactive'); setForm({ ...form, status: v ? 'Active' : 'Inactive' }); }} trueLabel="Active" falseLabel="Inactive" /></div>
-          </FormField>
-
           <FormField label="Minimum Booking Hours">
             <TextInput type="number" min={1} value={String(form.minBookingHours ?? '')} onChange={(e) => setForm({ ...form, minBookingHours: Number(e.target.value) })} />
           </FormField>
@@ -182,6 +174,10 @@ export function HallMaster() {
 
           <FormField label="Additional Hour Rate">
             <TextInput type="number" min={0} value={String(form.additionalHourRate ?? '')} onChange={(e) => setForm({ ...form, additionalHourRate: Number(e.target.value) })} />
+          </FormField>
+
+          <FormField label="Status">
+            <div className="pt-1"><Toggle checked={status === 'Active'} onChange={(v) => { setStatus(v ? 'Active' : 'Inactive'); setForm({ ...form, status: v ? 'Active' : 'Inactive' }); }} trueLabel="Active" falseLabel="Inactive" /></div>
           </FormField>
 
         </div>

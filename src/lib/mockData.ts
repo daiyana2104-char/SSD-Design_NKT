@@ -52,7 +52,7 @@ export interface Hall {
   depositAmount?: number;
   additionalHourRate?: number;
   images?: string[];
-  floorPlan?: string;
+  glCode?: string;
   status: 'Active' | 'Inactive';
 }
 
@@ -65,10 +65,8 @@ export interface HallPackage {
   advanceAmount?: number;
   depositAmount?: number;
   additionalHourRate?: number;
-  gstApplicable?: boolean;
+  glCode?: string;
   description?: string;
-  termsAndConditions?: string;
-  inclusions?: string[];
   halls: string[]; // hall ids
   status: 'Active' | 'Inactive';
 }
@@ -88,7 +86,7 @@ export interface AdditionalService {
   description?: string;
   pricingType?: 'Fixed' | 'Per Hour' | 'Per Person' | 'Per Unit';
   rate?: number;
-  gstApplicable?: boolean;
+  glCode?: string;
   status: 'Active' | 'Inactive';
 }
 
@@ -119,6 +117,8 @@ export interface HallPayment {
   paymentDate: string;
   reference?: string;
   collectedBy?: string;
+  paymentType?: 'Advance Payment' | 'Partial Payment' | 'Balance Payment';
+  remarks?: string;
 }
 
 export interface HallAudit {
@@ -195,7 +195,7 @@ export interface GLGroupL3 {
 }
 
 export interface GLMaster {
-  id: string; glCode: string; glName: string; gstType: string;
+  id: string; glCode: string; glName: string; gstType: string; gstRate?: number;
   groupL1Id: string; groupL2Id: string; groupL3Id: string;
   description: string; status: string;
 }
@@ -320,12 +320,12 @@ export const glGroupL3Records: GLGroupL3[] = [
 ];
 
 export const glRecords: GLMaster[] = [
-  { id: 'gl1', glCode: 'GL-1001', glName: 'Pooja Income', gstType: 'Standard Rate', groupL1Id: 'l1-1', groupL2Id: 'l2-1', groupL3Id: 'l3-2', description: 'Income from pooja services', status: 'Active' },
-  { id: 'gl2', glCode: 'GL-1002', glName: 'Archana Income', gstType: 'Standard Rate', groupL1Id: 'l1-1', groupL2Id: 'l2-1', groupL3Id: 'l3-1', description: 'Income from archana offerings', status: 'Active' },
-  { id: 'gl3', glCode: 'GL-1003', glName: 'Donation Income', gstType: 'Exempt', groupL1Id: 'l1-1', groupL2Id: 'l2-2', groupL3Id: 'l3-3', description: 'General donation income', status: 'Active' },
-  { id: 'gl4', glCode: 'GL-2001', glName: 'Festival Income', gstType: 'Standard Rate', groupL1Id: 'l1-1', groupL2Id: 'l2-1', groupL3Id: '', description: 'Income from festival events', status: 'Inactive' },
-  { id: 'gl5', glCode: 'GL-2002', glName: 'Hall Rental Income', gstType: 'Standard Rate', groupL1Id: 'l1-1', groupL2Id: 'l2-3', groupL3Id: 'l3-4', description: 'Income from hall rentals', status: 'Active' },
-  { id: 'gl6', glCode: 'GL-3001', glName: 'GST Payable', gstType: 'Standard Rate', groupL1Id: 'l1-2', groupL2Id: 'l2-4', groupL3Id: 'l3-5', description: 'GST output tax payable', status: 'Active' },
+  { id: 'gl1', glCode: 'GL-1001', glName: 'Pooja Income', gstType: 'Standard Rate', gstRate: 9, groupL1Id: 'l1-1', groupL2Id: 'l2-1', groupL3Id: 'l3-2', description: 'Income from pooja services', status: 'Active' },
+  { id: 'gl2', glCode: 'GL-1002', glName: 'Archana Income', gstType: 'Standard Rate', gstRate: 9, groupL1Id: 'l1-1', groupL2Id: 'l2-1', groupL3Id: 'l3-1', description: 'Income from archana offerings', status: 'Active' },
+  { id: 'gl3', glCode: 'GL-1003', glName: 'Donation Income', gstType: 'Exempt', gstRate: 0, groupL1Id: 'l1-1', groupL2Id: 'l2-2', groupL3Id: 'l3-3', description: 'General donation income', status: 'Active' },
+  { id: 'gl4', glCode: 'GL-2001', glName: 'Festival Income', gstType: 'Standard Rate', gstRate: 9, groupL1Id: 'l1-1', groupL2Id: 'l2-1', groupL3Id: '', description: 'Income from festival events', status: 'Inactive' },
+  { id: 'gl5', glCode: 'GL-2002', glName: 'Hall Rental Income', gstType: 'Standard Rate', gstRate: 9, groupL1Id: 'l1-1', groupL2Id: 'l2-3', groupL3Id: 'l3-4', description: 'Income from hall rentals', status: 'Active' },
+  { id: 'gl6', glCode: 'GL-3001', glName: 'GST Payable', gstType: 'Standard Rate', gstRate: 9, groupL1Id: 'l1-2', groupL2Id: 'l2-4', groupL3Id: 'l3-5', description: 'GST output tax payable', status: 'Active' },
 ];
 
 export const unitRecords: UnitMasterRecord[] = [
@@ -392,13 +392,13 @@ export const hallCategories: HallCategory[] = [
 ];
 
 export const halls: Hall[] = [
-  { id: 'h1', code: 'H-WED-03', name: 'Wedding Hall - Level 3', categoryId: 'hc1', level: 'Level 3', seatingCapacity: 300, minBookingHours: 3, hourlyRate: 200, depositApplicable: true, depositAmount: 500, additionalHourRate: 250, images: [], floorPlan: '', status: 'Active' },
-  { id: 'h2', code: 'H-FUN-02', name: 'Function Hall - Level 2', categoryId: 'hc2', level: 'Level 2', seatingCapacity: 150, minBookingHours: 2, hourlyRate: 120, depositApplicable: true, depositAmount: 300, additionalHourRate: 150, images: [], floorPlan: '', status: 'Active' },
-  { id: 'h3', code: 'H-DIN-01', name: 'Dining Hall - Level 1', categoryId: 'hc3', level: 'Level 1', seatingCapacity: 200, minBookingHours: 2, hourlyRate: 100, depositApplicable: false, depositAmount: 0, additionalHourRate: 120, images: [], floorPlan: '', status: 'Active' },
+  { id: 'h1', code: 'H-WED-03', name: 'Wedding Hall - Level 3', categoryId: 'hc1', level: 'Level 3', seatingCapacity: 300, minBookingHours: 3, hourlyRate: 200, depositApplicable: true, depositAmount: 500, additionalHourRate: 250, images: [], status: 'Active' },
+  { id: 'h2', code: 'H-FUN-02', name: 'Function Hall - Level 2', categoryId: 'hc2', level: 'Level 2', seatingCapacity: 150, minBookingHours: 2, hourlyRate: 120, depositApplicable: true, depositAmount: 300, additionalHourRate: 150, images: [], status: 'Active' },
+  { id: 'h3', code: 'H-DIN-01', name: 'Dining Hall - Level 1', categoryId: 'hc3', level: 'Level 1', seatingCapacity: 200, minBookingHours: 2, hourlyRate: 100, depositApplicable: false, depositAmount: 0, additionalHourRate: 120, images: [], status: 'Active' },
 ];
 
 export const hallPackages: HallPackage[] = [
-  { id: 'hp1', name: 'Wedding Package', purpose: 'hp-1', sessionDurationHours: 6, price: 3700, advanceAmount: 500, depositAmount: 500, additionalHourRate: 350, gstApplicable: true, description: 'Wedding package including halls and basic inclusions', termsAndConditions: 'Standard temple policy applies.', inclusions: ['Priest', 'Musicians'], halls: ['h1', 'h3'], status: 'Active' },
+  { id: 'hp1', name: 'Wedding Package', purpose: 'hp-1', sessionDurationHours: 6, price: 3700, advanceAmount: 500, depositAmount: 500, additionalHourRate: 350, glCode: 'GL-2001', description: 'Wedding package including halls and basic inclusions', halls: ['h1', 'h3'], status: 'Active' },
 ];
 
 export interface HallPurpose {
@@ -421,9 +421,9 @@ export const holidays: Holiday[] = [
 ];
 
 export const additionalServices: AdditionalService[] = [
-  { id: 'as1', code: 'DEC', name: 'Decoration', pricingType: 'Fixed', rate: 200, gstApplicable: true, status: 'Active' },
-  { id: 'as2', code: 'SOUND', name: 'Sound System', pricingType: 'Per Hour', rate: 150, gstApplicable: true, status: 'Active' },
-  { id: 'as3', code: 'TENT', name: 'Tent Setup', pricingType: 'Per Unit', rate: 300, gstApplicable: true, status: 'Active' },
+  { id: 'as1', code: 'DEC', name: 'Decoration', pricingType: 'Fixed', rate: 200, glCode: 'GL-2001', status: 'Active' },
+  { id: 'as2', code: 'SOUND', name: 'Sound System', pricingType: 'Per Hour', rate: 150, glCode: 'GL-2001', status: 'Active' },
+  { id: 'as3', code: 'TENT', name: 'Tent Setup', pricingType: 'Per Unit', rate: 300, glCode: 'GL-2001', status: 'Active' },
 ];
 
 export const hallBookings: HallBooking[] = [];

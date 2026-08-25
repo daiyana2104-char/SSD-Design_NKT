@@ -94,7 +94,6 @@ export function CustomerMaster() {
           <FormField label="Email Address" required><TextInput type="email" value={form.email ?? ''} onChange={(e) => setForm({ ...form, email: e.target.value })} /></FormField>
           <FormField label="Date of Birth"><TextInput type="date" value={form.dob ?? ''} onChange={(e) => setForm({ ...form, dob: e.target.value })} /></FormField>
           <FormField label="Gender"><Dropdown value={form.gender ?? ''} onChange={(v) => setForm({ ...form, gender: v })} options={[{ label: 'Male', value: 'Male' }, { label: 'Female', value: 'Female' }, { label: 'Other', value: 'Other' }]} placeholder="Select Gender" /></FormField>
-          <FormField label="Status"><div className="pt-1"><Toggle checked={status === 'Active'} onChange={(v) => setStatus(v ? 'Active' : 'Inactive')} label={status} /></div></FormField>
         </div>
 
         <div className="mt-6">
@@ -123,6 +122,10 @@ export function CustomerMaster() {
               ))}
             </div>
           )}
+        </div>
+
+        <div className="mt-4">
+          <FormField label="Status"><div className="pt-1"><Toggle checked={status === 'Active'} onChange={(v) => setStatus(v ? 'Active' : 'Inactive')} label={status} /></div></FormField>
         </div>
       </Modal>
 

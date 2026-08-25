@@ -7,7 +7,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { Modal } from '@/components/ui/Modal';
 import { FormField, TextInput } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
-import { type HallPayment } from '@/lib/mockData';
+import { users, type HallPayment } from '@/lib/mockData';
 import { hallPayments as initialPayments, hallBookings as bookings } from '@/lib/hallData';
 
 const PAGE_SIZE = 8;
@@ -18,7 +18,10 @@ export function HallPayments() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState<Partial<HallPayment>>({ paymentMode: 'Cash', paymentDate: new Date().toISOString().slice(0, 10) });
+  const [form, setForm] = useState<Partial<HallPayment>>({ paymentMode: 'Cash', paymentType: 'Advance Payment', paymentDate: new Date().toISOString().slice(0, 10) });
+  const selectedBooking = bookings.find((booking) => booking.id === form.bookingId);
+  const alreadyPaid = selectedBooking?.paidAmount ?? 0;
+  const balance = Math.max(0, (selectedBooking?.totalAmount ?? 0) - alreadyPaid);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -31,13 +34,15 @@ export function HallPayments() {
   const openCreate = () => { setForm({ paymentDate: new Date().toISOString().slice(0,10) }); setModalOpen(true); };
 
   const handleSave = () => {
-    if (!form.bookingId || !form.amount) return toast.error('Validation Error', 'Please fill required fields.');
+    if (!form.bookingId || !form.amount || !form.paymentType) return toast.error('Validation Error', 'Please fill required fields.');
     if (!Number.isFinite(Number(form.amount)) || Number(form.amount) <= 0) return toast.error('Validation Error', 'Amount must be greater than 0.');
-    const newP: HallPayment = { id: 'hp-' + Math.random().toString(36).slice(2), bookingId: form.bookingId as string, amount: Number(form.amount), paymentMode: form.paymentMode ?? 'Cash', paymentDate: form.paymentDate ?? new Date().toISOString().slice(0, 10), reference: form.reference ?? '', collectedBy: form.collectedBy ?? '' };
+    if (Number(form.amount) > balance) return toast.error('Validation Error', 'Payment cannot exceed the outstanding balance.');
+    if (form.paymentMode !== 'Cash' && !form.reference?.trim()) return toast.error('Validation Error', 'Payment reference is required for this payment mode.');
+    const newP: HallPayment = { id: 'hp-' + Math.random().toString(36).slice(2), bookingId: form.bookingId as string, amount: Number(form.amount), paymentMode: form.paymentMode ?? 'Cash', paymentDate: form.paymentDate ?? new Date().toISOString().slice(0, 10), reference: form.reference ?? '', collectedBy: form.collectedBy ?? '', paymentType: form.paymentType, remarks: form.remarks };
     setData(prev => [...prev, newP]);
     toast.success('Payment recorded');
     setModalOpen(false);
-    setForm({ paymentMode: 'Cash', paymentDate: new Date().toISOString().slice(0, 10) });
+    setForm({ paymentMode: 'Cash', paymentType: 'Advance Payment', paymentDate: new Date().toISOString().slice(0, 10) });
   };
 
   const columns: Column<HallPayment>[] = [
@@ -70,6 +75,9 @@ export function HallPayments() {
             </select>
           </FormField>
 
+          {selectedBooking && <div className="rounded bg-cream-50 p-3 text-sm text-brown-700"><p>Customer: {selectedBooking.customerName}</p><p>Total: S${selectedBooking.totalAmount.toFixed(2)}</p><p>Paid: S${alreadyPaid.toFixed(2)}</p><p>Balance: S${balance.toFixed(2)}</p></div>}
+
+          <FormField label="Payment Type" required><select value={form.paymentType ?? ''} onChange={(e) => setForm({ ...form, paymentType: e.target.value as HallPayment['paymentType'] })} className="input"><option value="Advance Payment">Advance Payment</option><option value="Partial Payment">Partial Payment</option><option value="Balance Payment">Balance Payment</option></select></FormField>
           <FormField label="Amount" required>
             <TextInput type="number" value={String(form.amount ?? '')} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} />
           </FormField>
@@ -87,13 +95,15 @@ export function HallPayments() {
             <TextInput type="date" value={form.paymentDate ?? ''} onChange={(e) => setForm({ ...form, paymentDate: e.target.value })} />
           </FormField>
 
-          <FormField label="Reference">
+          <FormField label="Payment Reference">
             <TextInput value={form.reference ?? ''} onChange={(e) => setForm({ ...form, reference: e.target.value })} />
           </FormField>
 
           <FormField label="Collected By">
-            <TextInput value={form.collectedBy ?? ''} onChange={(e) => setForm({ ...form, collectedBy: e.target.value })} />
+            <select value={form.collectedBy ?? ''} onChange={(e) => setForm({ ...form, collectedBy: e.target.value })} className="input"><option value="">Select user</option>{users.filter(user => user.status === 'Active').map(user => <option key={user.id} value={user.name}>{user.name}</option>)}</select>
           </FormField>
+
+          <FormField label="Remarks"><TextInput value={form.remarks ?? ''} onChange={(e) => setForm({ ...form, remarks: e.target.value })} /></FormField>
 
         </div>
       </Modal>

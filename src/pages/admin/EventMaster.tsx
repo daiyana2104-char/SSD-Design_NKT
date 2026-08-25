@@ -1147,29 +1147,6 @@ export function EventMasterPage() {
             />
           </FormField>
 
-          {/* STATUS */}
-
-          <FormField label="Status">
-            <div className="pt-1">
-              <Toggle
-                checked={
-                  status ===
-                  'Active'
-                }
-                onChange={(value) =>
-                  setStatus(
-                    value
-                      ? 'Active'
-                      : 'Inactive',
-                  )
-                }
-                label={
-                  status
-                }
-              />
-            </div>
-          </FormField>
-
           {/* ================================================= */}
           {/* SLOT DETAILS */}
           {/* ================================================= */}
@@ -1418,6 +1395,28 @@ export function EventMasterPage() {
               )}
             </div>
           )}
+
+          {/* STATUS */}
+          <FormField label="Status">
+            <div className="pt-1">
+              <Toggle
+                checked={
+                  status ===
+                  'Active'
+                }
+                onChange={(value) =>
+                  setStatus(
+                    value
+                      ? 'Active'
+                      : 'Inactive',
+                  )
+                }
+                label={
+                  status
+                }
+              />
+            </div>
+          </FormField>
         </div>
       </Modal>
 

@@ -212,7 +212,6 @@ export function CmsPages() {
           <FormField label="Page Name" required error={errors.pageName} hint="Must be unique"><TextInput value={form.pageName} onChange={(e) => setForm({ ...form, pageName: e.target.value })} /></FormField>
           <FormField label="Title" required error={errors.title}><TextInput value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></FormField>
           <FormField label="Display Order" hint="Numeric only"><TextInput type="number" value={form.displayOrder} onChange={(e) => setForm({ ...form, displayOrder: Number(e.target.value) })} /></FormField>
-          <FormField label="Status" required><RadioGroup value={form.status} onChange={(v) => setForm({ ...form, status: v })} options={[{ label: 'Active', value: 'Active' }, { label: 'Inactive', value: 'Inactive' }]} /></FormField>
           <div className="sm:col-span-2">
             <FormField label="Description" required error={errors.description}>
               <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input min-h-[150px] font-mono text-sm" placeholder="Enter page content..." />
@@ -222,6 +221,7 @@ export function CmsPages() {
           <FormField label="Meta Title" error={errors.metaTitle} hint="Max 60 characters (recommended)"><TextInput value={form.metaTitle} onChange={(e) => setForm({ ...form, metaTitle: e.target.value })} maxLength={60} /></FormField>
           <FormField label="Meta Keywords" hint="Comma-separated"><TextInput value={form.metaKeywords} onChange={(e) => setForm({ ...form, metaKeywords: e.target.value })} /></FormField>
           <div className="sm:col-span-2"><FormField label="Meta Description" error={errors.metaDescription} hint="Max 160 characters (recommended)"><TextArea value={form.metaDescription} onChange={(e) => setForm({ ...form, metaDescription: e.target.value })} maxLength={160} /></FormField></div>
+          <FormField label="Status" required className="sm:col-span-2"><RadioGroup value={form.status} onChange={(v) => setForm({ ...form, status: v })} options={[{ label: 'Active', value: 'Active' }, { label: 'Inactive', value: 'Inactive' }]} /></FormField>
         </div>
       </Modal>
 

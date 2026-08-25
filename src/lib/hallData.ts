@@ -8,7 +8,7 @@ export type HallBookingRecord = HallBooking & {
   hallPackage: string;
   hallPurpose: string;
   amount: number;
-  paymentStatus: 'Pending' | 'Partially Paid' | 'Paid' | 'Refunded';
+  paymentStatus: 'Pending' | 'Partially Paid' | 'Paid' | 'Refunded' | 'Partially Refunded';
   bookingStatus: 'Confirmed' | 'Pending' | 'Completed' | 'Cancelled' | 'Refunded';
 };
 

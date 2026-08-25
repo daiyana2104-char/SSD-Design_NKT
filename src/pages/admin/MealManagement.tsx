@@ -9,7 +9,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { Modal } from '@/components/ui/Modal';
 import { Dropdown, FormField, TextArea, TextInput, Toggle } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
-import { customers } from '@/lib/mockData';
+import { customers, glRecords } from '@/lib/mockData';
 
 type MealModule = 'category' | 'item' | 'booking' | 'availability' | 'reports';
 
@@ -32,30 +32,29 @@ const initialMealCategories: MealCategory[] = [
 ];
 
 type MealType = 'Breakfast' | 'Lunch' | 'Dinner' | 'Snacks' | 'Other';
-type PricingBasis = 'Per Person' | 'Per Unit' | 'Per Kg' | 'Fixed';
 type BookingStatus = 'Draft' | 'Confirmed' | 'Cancelled' | 'Completed';
 type PaymentStatus = 'Pending' | 'Partially Paid' | 'Paid' | 'Refunded';
 
 interface MealItem {
   id: string; code: string; name: string; tamilName: string; mealType: MealType;
-  pricingBasis: PricingBasis; rate: number; description: string; status: 'Active' | 'Inactive';
+  categoryId: string; glCode?: string; description: string; status: 'Active' | 'Inactive';
 }
 
 interface StoredMealPackage {
-  id: string; code: string; name: string; categoryId: string; mealType: MealType;
-  pricePerPax: number; minimumPax: number; maximumPax?: number; gstApplicable: boolean;
-  gstRate?: number; description: string; status: 'Active' | 'Inactive'; itemIds: string[];
+  id: string; code: string; name: string; categoryId: string; packageType: 'Vegetarian' | 'Non-Vegetarian' | 'Mixed'; paxType: 'Adult' | 'Child' | 'Both';
+  pricePerPax: number; minimumPax: number; maximumPax?: number; glCode?: string;
+  description: string; status: 'Active' | 'Inactive'; itemIds: string[];
 }
 
 interface MealBooking {
   id: string; reference: string; customerId: string; eventDate: string; categoryId: string;
-  mealType: MealType; packageId: string; adultPax: number; childPax: number; totalPax: number;
+  mealType: MealType; serviceTime: string; packageId: string; adultPax: number; childPax: number; totalPax: number;
   packageAmount: number; gst: number; totalAmount: number; amountPaid: number;
   paymentStatus: PaymentStatus; bookingStatus: BookingStatus;
 }
 
 interface MealAvailability {
-  id: string; date: string; packageId: string; capacity: number;
+  id: string; date: string; packageId: string; capacity: number; status?: string;
 }
 
 const mealItemsKey = 'meal_items';
@@ -63,17 +62,16 @@ const mealPackagesKey = 'meal_packages';
 const mealBookingsKey = 'meal_bookings';
 const mealAvailabilityKey = 'meal_availability';
 const mealTypeOptions = ['Breakfast', 'Lunch', 'Dinner', 'Snacks', 'Other'].map((value) => ({ label: value, value }));
-const pricingBasisOptions = ['Per Person', 'Per Unit', 'Per Kg', 'Fixed'].map((value) => ({ label: value, value }));
 const bookingStatusOptions = ['Draft', 'Confirmed', 'Cancelled', 'Completed'].map((value) => ({ label: value, value }));
 
 const initialMealItems: MealItem[] = [
   ['FOOD001', 'Idly', 'Breakfast'], ['FOOD002', 'Vada', 'Breakfast'], ['FOOD003', 'Pongal', 'Breakfast'],
   ['FOOD004', 'Rice', 'Lunch'], ['FOOD005', 'Sambar', 'Lunch'], ['FOOD006', 'Rasam', 'Lunch'],
   ['FOOD007', 'Payasam', 'Lunch'], ['FOOD008', 'Briyani', 'Lunch'], ['FOOD009', 'Coffee', 'Snacks'], ['FOOD010', 'Tea', 'Snacks'],
-].map(([code, name, mealType], index) => ({ id: `meal-i${index + 1}`, code, name, tamilName: '', mealType: mealType as MealType, pricingBasis: 'Per Person', rate: 0, description: '', status: 'Active' }));
+].map(([code, name, mealType], index) => ({ id: `meal-i${index + 1}`, code, name, tamilName: '', mealType: mealType as MealType, categoryId: `mc${mealType === 'Breakfast' ? 1 : mealType === 'Lunch' ? 2 : mealType === 'Dinner' ? 3 : 4}`, description: '', status: 'Active' }));
 const initialMealPackages: StoredMealPackage[] = [
-  { id: 'mp1', code: 'MEAL001', name: 'Annadhanam Package', categoryId: 'mc2', mealType: 'Lunch', pricePerPax: 10, minimumPax: 1, gstApplicable: false, description: 'Meal package for devotees.', status: 'Active', itemIds: ['meal-i1'] },
-  { id: 'mp2', code: 'MEAL002', name: 'Special Meal Set', categoryId: 'mc3', mealType: 'Dinner', pricePerPax: 15, minimumPax: 10, maximumPax: 500, gstApplicable: true, gstRate: 9, description: 'Special meal package for events.', status: 'Active', itemIds: ['meal-i4', 'meal-i5'] },
+  { id: 'mp1', code: 'MEAL001', name: 'Annadhanam Package', categoryId: 'mc2', packageType: 'Vegetarian', paxType: 'Both', pricePerPax: 10, minimumPax: 1, glCode: 'GL-2002', description: 'Meal package for devotees.', status: 'Active', itemIds: ['meal-i1'] },
+  { id: 'mp2', code: 'MEAL002', name: 'Special Meal Set', categoryId: 'mc3', packageType: 'Mixed', paxType: 'Both', pricePerPax: 15, minimumPax: 10, maximumPax: 500, glCode: 'GL-2002', description: 'Special meal package for events.', status: 'Active', itemIds: ['meal-i4', 'meal-i5'] },
 ];
 
 function readStorage<T>(key: string, fallback: T): T {
@@ -85,7 +83,10 @@ function writeStorage<T>(key: string, value: T) {
 }
 
 function loadMealItems() { return readStorage<MealItem[]>(mealItemsKey, initialMealItems); }
-function loadMealPackages() { return readStorage<StoredMealPackage[]>(mealPackagesKey, initialMealPackages); }
+function loadMealPackages() {
+  const saved = readStorage<StoredMealPackage[]>(mealPackagesKey, []);
+  return saved.length ? saved : initialMealPackages;
+}
 function loadMealCategoriesForModule() { return readStorage<MealCategory[]>(MEAL_CATEGORIES_KEY, initialMealCategories); }
 
 function loadMealCategories() {
@@ -100,13 +101,11 @@ function loadMealCategories() {
 function MealCategoryMasterScreen() {
   const toast = useToast();
   const [data, setData] = useState<MealCategory[]>(loadMealCategories);
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
+  const [form, setForm] = useState<Partial<MealCategory>>({});
+  const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<MealCategory | null>(null);
   const [viewing, setViewing] = useState<MealCategory | null>(null);
-  const [form, setForm] = useState<Partial<MealCategory>>({});
-  const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
 
   const persist = (next: MealCategory[]) => {
     setData(next);
@@ -122,11 +121,12 @@ function MealCategoryMasterScreen() {
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const nextCode = `MC-${String(data.length + 1).padStart(3, '0')}`;
 
   const openCreate = () => {
     setEditing(null);
     setViewing(null);
-    setForm({ code: '', name: '', description: '', displayOrder: undefined });
+    setForm({ code: nextCode, name: '', description: '', displayOrder: undefined });
     setStatus('Active');
     setModalOpen(true);
   };
@@ -148,7 +148,7 @@ function MealCategoryMasterScreen() {
   };
 
   const handleSave = () => {
-    const code = form.code?.trim().toUpperCase() ?? '';
+    const code = editing?.code ?? form.code?.trim().toUpperCase() ?? '';
     const name = form.name?.trim() ?? '';
     const description = form.description?.trim() ?? '';
     const displayOrder = form.displayOrder === undefined || form.displayOrder === '' ? 0 : Number(form.displayOrder);
@@ -215,10 +215,10 @@ function MealCategoryMasterScreen() {
       </div>
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={viewing ? 'View Category' : (editing ? 'Edit Category' : 'Add Category')} size="md" footer={viewing ? undefined : <><button type="button" className="btn-outline" onClick={() => setModalOpen(false)}>Cancel</button><button type="button" className="btn-primary" onClick={handleSave}>Save</button></>}>
         <div className="grid gap-4 sm:grid-cols-2">
-          <FormField label="Category Code" required><TextInput value={form.code ?? ''} onChange={(event) => setForm({ ...form, code: event.target.value })} placeholder="e.g. BRK" disabled={!!viewing} /></FormField>
+          <FormField label="Category Code" required><TextInput value={form.code ?? ''} placeholder="Auto-generated" disabled /></FormField>
           <FormField label="Category Name" required><TextInput value={form.name ?? ''} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="e.g. Breakfast" disabled={!!viewing} /></FormField>
           <FormField label="Description" className="sm:col-span-2"><TextArea value={form.description ?? ''} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Describe this meal category" disabled={!!viewing} /></FormField>
-          <FormField label="Display Order"><TextInput type="number" min="0" value={form.displayOrder ?? ''} onChange={(event) => setForm({ ...form, displayOrder: event.target.value === '' ? undefined : Number(event.target.value) })} placeholder="e.g. 1" disabled={!!viewing} /></FormField>
+          <FormField label="Display Order"><TextInput type="number" min="1" step="1" value={form.displayOrder ?? ''} onChange={(event) => setForm({ ...form, displayOrder: event.target.value === '' ? undefined : Number(event.target.value) })} placeholder="e.g. 1" disabled={!!viewing} /></FormField>
           <FormField label="Status"><div className="pt-2">{viewing ? <StatusBadge status={status} /> : <Toggle checked={status === 'Active'} onChange={(value) => setStatus(value ? 'Active' : 'Inactive')} trueLabel="Active" falseLabel="Inactive" />}</div></FormField>
         </div>
       </Modal>
@@ -234,41 +234,40 @@ function MealItemMasterScreen() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<MealItem | null>(null);
   const [viewing, setViewing] = useState<MealItem | null>(null);
-  const [form, setForm] = useState<MealItem>({ id: '', code: '', name: '', tamilName: '', mealType: 'Breakfast', pricingBasis: 'Per Person', rate: 0, description: '', status: 'Active' });
+  const [form, setForm] = useState<MealItem>({ id: '', code: '', name: '', tamilName: '', mealType: 'Breakfast', categoryId: '', glCode: '', description: '', status: 'Active' });
   const updateData = (next: MealItem[]) => { setData(next); writeStorage(mealItemsKey, next); };
   const filtered = useMemo(() => { const q = search.trim().toLowerCase(); return data.filter((item) => !q || [item.code, item.name, item.tamilName].some((value) => value.toLowerCase().includes(q))); }, [data, search]);
   const pageSize = 8;
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const paged = filtered.slice((page - 1) * pageSize, page * pageSize);
-  const openCreate = () => { setEditing(null); setViewing(null); setForm({ id: '', code: '', name: '', tamilName: '', mealType: 'Breakfast', pricingBasis: 'Per Person', rate: 0, description: '', status: 'Active' }); setModalOpen(true); };
+  const openCreate = () => { setEditing(null); setViewing(null); setForm({ id: '', code: `MI-${String(data.length + 1).padStart(3, '0')}`, name: '', tamilName: '', mealType: 'Breakfast', categoryId: '', glCode: '', description: '', status: 'Active' }); setModalOpen(true); };
   const openEdit = (item: MealItem) => { setEditing(item); setViewing(null); setForm({ ...item }); setModalOpen(true); };
   const openView = (item: MealItem) => { setViewing(item); setEditing(null); setForm({ ...item }); setModalOpen(true); };
   const save = () => {
-    const code = form.code.trim().toUpperCase(); const name = form.name.trim(); const rate = Number(form.rate);
+    const code = editing?.code ?? form.code.trim().toUpperCase(); const name = form.name.trim();
     if (!code) return toast.error('Validation Error', 'Item code is required.');
     if (!name) return toast.error('Validation Error', 'Item name is required.');
     if (!form.mealType) return toast.error('Validation Error', 'Meal type is required.');
-    if (!form.pricingBasis) return toast.error('Validation Error', 'Pricing basis is required.');
-    if (!Number.isFinite(rate) || rate < 0) return toast.error('Validation Error', 'Rate cannot be negative.');
+    if (!form.categoryId || !loadMealCategoriesForModule().some((category) => category.id === form.categoryId && category.status === 'Active')) return toast.error('Validation Error', 'Select an active meal category.');
     if (data.some((item) => item.code.toLowerCase() === code.toLowerCase() && item.id !== editing?.id)) return toast.error('Duplicate Code', 'Item code already exists.');
-    const record = { ...form, code, name, rate, id: editing?.id ?? `meal-i-${Math.random().toString(36).slice(2)}` };
+    const record = { ...form, code, name, id: editing?.id ?? `meal-i-${Math.random().toString(36).slice(2)}` };
     updateData(editing ? data.map((item) => item.id === editing.id ? record : item) : [...data, record]);
     toast.success(editing ? 'Meal item updated' : 'Meal item created'); setModalOpen(false);
   };
   const toggleStatus = (item: MealItem) => { const next = item.status === 'Active' ? 'Inactive' : 'Active'; updateData(data.map((value) => value.id === item.id ? { ...value, status: next } : value)); toast.success(`Meal item ${next === 'Active' ? 'activated' : 'deactivated'}`); };
   const columns: Column<MealItem>[] = [
     { key: 'code', header: 'Item Code' }, { key: 'name', header: 'Item Name' }, { key: 'tamilName', header: 'Tamil Name', render: (item) => item.tamilName || '-' },
-    { key: 'mealType', header: 'Meal Type' }, { key: 'pricingBasis', header: 'Pricing Basis' }, { key: 'rate', header: 'Rate', align: 'right', render: (item) => `S$${item.rate.toFixed(2)}` },
+    { key: 'mealType', header: 'Meal Type' }, { key: 'category', header: 'Category', render: (item) => loadMealCategoriesForModule().find((category) => category.id === item.categoryId)?.name ?? '-' },
     { key: 'status', header: 'Status', render: (item) => <StatusBadge status={item.status} /> },
     { key: 'actions', header: 'Actions', align: 'center', render: (item) => <div className="flex justify-center gap-1"><button type="button" onClick={() => openView(item)} className="rounded p-1.5 text-brown-500 hover:bg-cream-100" title="View"><Eye className="h-4 w-4" /></button><button type="button" onClick={() => openEdit(item)} className="rounded p-1.5 text-brown-500 hover:bg-cream-100" title="Edit"><Edit className="h-4 w-4" /></button><button type="button" onClick={() => toggleStatus(item)} className="rounded p-1.5 text-brown-500 hover:bg-cream-100" title="Activate / Deactivate"><Power className="h-4 w-4" /></button></div> },
   ];
-  return <div><PageHeader title="Meal Item Master" description="Manage individual meal food items" actions={<button type="button" className="btn-primary" onClick={openCreate}><Plus className="h-4 w-4" />Add Item</button>} /><div className="card p-4"><SearchFilterBar search={search} onSearch={(value) => { setSearch(value); setPage(1); }} searchPlaceholder="Search item code or name..." filters={[]} /></div><div className="card mt-4"><DataTable columns={columns} data={paged} /><Pagination page={page} totalPages={totalPages} onPage={setPage} totalItems={filtered.length} pageSize={pageSize} /></div><Modal open={modalOpen} onClose={() => setModalOpen(false)} title={viewing ? 'View Meal Item' : editing ? 'Edit Meal Item' : 'Add Meal Item'} size="lg" footer={<><button type="button" className="btn-outline" onClick={() => setModalOpen(false)}>Close</button>{!viewing && <button type="button" className="btn-primary" onClick={save}>Save</button>}</>}><div className="grid gap-4 sm:grid-cols-2"><FormField label="Item Code" required><TextInput disabled={!!viewing} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} /></FormField><FormField label="Item Name" required><TextInput disabled={!!viewing} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></FormField><FormField label="Tamil Name"><TextInput disabled={!!viewing} value={form.tamilName} onChange={(e) => setForm({ ...form, tamilName: e.target.value })} /></FormField><FormField label="Meal Type" required><div className={viewing ? 'pointer-events-none opacity-60' : undefined}><Dropdown value={form.mealType} onChange={(value) => setForm({ ...form, mealType: value as MealType })} options={mealTypeOptions} /></div></FormField><FormField label="Pricing Basis" required><div className={viewing ? 'pointer-events-none opacity-60' : undefined}><Dropdown value={form.pricingBasis} onChange={(value) => setForm({ ...form, pricingBasis: value as PricingBasis })} options={pricingBasisOptions} /></div></FormField><FormField label="Rate" required><TextInput disabled={!!viewing} type="number" min="0" step="0.01" value={String(form.rate)} onChange={(e) => setForm({ ...form, rate: Number(e.target.value) })} /></FormField><FormField label="Description" className="sm:col-span-2"><TextArea disabled={!!viewing} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></FormField><FormField label="Status" className={viewing ? 'pointer-events-none opacity-60' : undefined}><Toggle checked={form.status === 'Active'} onChange={(value) => setForm({ ...form, status: value ? 'Active' : 'Inactive' })} trueLabel="Active" falseLabel="Inactive" /></FormField></div></Modal></div>;
+  return <div><PageHeader title="Meal Item Master" description="Manage individual meal food items" actions={<button type="button" className="btn-primary" onClick={openCreate}><Plus className="h-4 w-4" />Add Item</button>} /><div className="card p-4"><SearchFilterBar search={search} onSearch={(value) => { setSearch(value); setPage(1); }} searchPlaceholder="Search item code or name..." filters={[]} /></div><div className="card mt-4"><DataTable columns={columns} data={paged} /><Pagination page={page} totalPages={totalPages} onPage={setPage} totalItems={filtered.length} pageSize={pageSize} /></div><Modal open={modalOpen} onClose={() => setModalOpen(false)} title={viewing ? 'View Meal Item' : editing ? 'Edit Meal Item' : 'Add Meal Item'} size="lg" footer={<><button type="button" className="btn-outline" onClick={() => setModalOpen(false)}>Close</button>{!viewing && <button type="button" className="btn-primary" onClick={save}>Save</button>}</>}><div className="grid gap-4 sm:grid-cols-2"><FormField label="Item Code" required><TextInput disabled={!!viewing} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} /></FormField><FormField label="Item Name" required><TextInput disabled={!!viewing} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></FormField><FormField label="Tamil Name"><TextInput disabled={!!viewing} value={form.tamilName} onChange={(e) => setForm({ ...form, tamilName: e.target.value })} /></FormField><FormField label="Meal Type" required><div className={viewing ? 'pointer-events-none opacity-60' : undefined}><Dropdown value={form.mealType} onChange={(value) => setForm({ ...form, mealType: value as MealType })} options={mealTypeOptions} /></div></FormField><FormField label="Pricing Basis" required><div className={viewing ? 'pointer-events-none opacity-60' : undefined}><Dropdown value={form.pricingBasis} onChange={(value) => setForm({ ...form, pricingBasis: value as PricingBasis })} options={pricingBasisOptions} /></div></FormField><FormField label="Rate" required><TextInput disabled={!!viewing} type="number" min="0" step="0.01" value={String(form.rate)} onChange={(e) => setForm({ ...form, rate: Number(e.target.value) })} /></FormField><FormField label="GL"><div className={viewing ? 'pointer-events-none opacity-60' : undefined}><Dropdown value={form.glCode ?? ''} onChange={(value) => setForm({ ...form, glCode: value })} options={glRecords.filter((record) => record.status === 'Active').map((record) => ({ label: `${record.glCode} - ${record.glName}`, value: record.glCode }))} placeholder="Select GL" /></div></FormField><FormField label="Description" className="sm:col-span-2"><TextArea disabled={!!viewing} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></FormField><FormField label="Status" className={viewing ? 'pointer-events-none opacity-60' : undefined}><Toggle checked={form.status === 'Active'} onChange={(value) => setForm({ ...form, status: value ? 'Active' : 'Inactive' })} trueLabel="Active" falseLabel="Inactive" /></FormField></div></Modal></div>;
 }
 
 function MealBookingManagementScreen() {
   const toast = useToast();
   const [data, setData] = useState<MealBooking[]>(() => readStorage(mealBookingsKey, []));
-  const [packages] = useState<StoredMealPackage[]>(loadMealPackages);
+  const packages = loadMealPackages();
   const categories = loadMealCategoriesForModule();
   const activeCategories = categories.filter((category) => category.status === 'Active');
   const activePackages = packages.filter((item) => item.status === 'Active');
@@ -276,22 +275,23 @@ function MealBookingManagementScreen() {
   const [form, setForm] = useState<MealBooking>({ id: '', reference: '', customerId: '', eventDate: '', categoryId: '', mealType: 'Breakfast', packageId: '', adultPax: 0, childPax: 0, totalPax: 0, packageAmount: 0, gst: 0, totalAmount: 0, amountPaid: 0, paymentStatus: 'Pending', bookingStatus: 'Draft' });
   const persist = (next: MealBooking[]) => { setData(next); writeStorage(mealBookingsKey, next); };
   const selectedPackage = activePackages.find((item) => item.id === form.packageId) ?? packages.find((item) => item.id === form.packageId);
-  const matchingPackages = activePackages.filter((item) => item.categoryId === form.categoryId && item.mealType === form.mealType);
+    const matchingPackages = activePackages.filter((item) => !form.categoryId || item.categoryId === form.categoryId);
+    const mealTypeForCategory = (categoryId: string) => (categories.find((category) => category.id === categoryId)?.name ?? 'Breakfast') as MealType;
   const customer = customers.find((item) => item.id === form.customerId);
-  const calculate = (next: Partial<MealBooking>) => { const adult = Number(next.adultPax ?? form.adultPax) || 0; const child = Number(next.childPax ?? form.childPax) || 0; const pkg = activePackages.find((item) => item.id === (next.packageId ?? form.packageId)); const totalPax = adult + child; const packageAmount = pkg ? pkg.pricePerPax * totalPax : 0; const gst = pkg?.gstApplicable ? packageAmount * ((pkg.gstRate ?? 0) / 100) : 0; return { ...form, ...next, totalPax, packageAmount, gst, totalAmount: packageAmount + gst }; };
-  const openCreate = () => { setEditing(null); setViewing(null); setForm({ id: '', reference: `MB${new Date().getFullYear()}${String(data.length + 1).padStart(4, '0')}`, customerId: '', eventDate: '', categoryId: '', mealType: 'Breakfast', packageId: '', adultPax: 0, childPax: 0, totalPax: 0, packageAmount: 0, gst: 0, totalAmount: 0, amountPaid: 0, paymentStatus: 'Pending', bookingStatus: 'Draft' }); setModalOpen(true); };
+  const calculate = (next: Partial<MealBooking>) => { const adult = Number(next.adultPax ?? form.adultPax) || 0; const child = Number(next.childPax ?? form.childPax) || 0; const pkg = activePackages.find((item) => item.id === (next.packageId ?? form.packageId)); const gl = glRecords.find((record) => record.glCode === pkg?.glCode && record.status === 'Active'); const totalPax = adult + child; const packageAmount = pkg ? pkg.pricePerPax * totalPax : 0; const gst = gl?.gstRate ? packageAmount * (gl.gstRate / 100) : 0; return { ...form, ...next, totalPax, packageAmount, gst, totalAmount: packageAmount + gst }; };
+  const openCreate = () => { setEditing(null); setViewing(null); setForm({ id: '', reference: `MB${new Date().getFullYear()}${String(data.length + 1).padStart(4, '0')}`, customerId: '', eventDate: '', categoryId: '', mealType: 'Breakfast', serviceTime: '', packageId: '', adultPax: 0, childPax: 0, totalPax: 0, packageAmount: 0, gst: 0, totalAmount: 0, amountPaid: 0, paymentStatus: 'Pending', bookingStatus: 'Draft' }); setModalOpen(true); };
   const openView = (booking: MealBooking) => { setViewing(booking); setEditing(null); setForm(booking); setModalOpen(true); };
   const openEdit = (booking: MealBooking) => { setViewing(null); setEditing(booking); setForm(booking); setModalOpen(true); };
   const save = () => {
     const next = calculate(form); const pkg = activePackages.find((item) => item.id === next.packageId); const totalPax = next.totalPax;
-    if (!next.reference.trim() || !next.customerId || !next.eventDate || !next.categoryId || !next.packageId) return toast.error('Validation Error', 'Complete all booking details.');
+    if (!next.reference.trim() || !next.customerId || !next.eventDate || !next.serviceTime || !next.categoryId || !next.packageId) return toast.error('Validation Error', 'Complete all booking details.');
     if (totalPax <= 0) return toast.error('Validation Error', 'Total pax must be greater than zero.');
     if (pkg && (totalPax < pkg.minimumPax || (pkg.maximumPax !== undefined && totalPax > pkg.maximumPax))) return toast.error('Validation Error', `Pax must be between ${pkg.minimumPax} and ${pkg.maximumPax ?? 'the package maximum'}.`);
     if (next.bookingStatus === 'Confirmed') {
       const availability = readStorage<MealAvailability[]>(mealAvailabilityKey, []).find((item) => item.date === next.eventDate && item.packageId === next.packageId);
       const booked = data.filter((item) => item.eventDate === next.eventDate && item.packageId === next.packageId && item.bookingStatus === 'Confirmed' && item.id !== editing?.id).reduce((sum, item) => sum + item.totalPax, 0);
       if (!availability) return toast.error('Availability Required', 'Configure availability for this package and date before confirming.');
-      if (booked + totalPax > availability.capacity) return toast.error('Capacity Exceeded', `Only ${Math.max(0, availability.capacity - booked)} pax are available for this meal package on the selected date.`);
+      if ((availability.status ?? '').toLowerCase().includes('closed') || booked + totalPax > availability.capacity) return toast.error('Capacity Exceeded', `Only ${Math.max(0, availability.capacity - booked)} pax are available for this meal package on the selected date.`);
     }
     const record = { ...next, id: editing?.id ?? `mb-${Math.random().toString(36).slice(2)}` }; persist(editing ? data.map((item) => item.id === editing.id ? record : item) : [...data, record]); toast.success(editing ? 'Meal booking updated' : 'Meal booking created'); setModalOpen(false);
   };
@@ -312,10 +312,10 @@ function MealAvailabilityManagementScreen() {
   const packages = loadMealPackages(); const categories = loadMealCategoriesForModule(); const bookings = readStorage<MealBooking[]>(mealBookingsKey, []);
   const [dateFilter, setDateFilter] = useState(''); const [categoryFilter, setCategoryFilter] = useState(''); const [typeFilter, setTypeFilter] = useState(''); const [packageFilter, setPackageFilter] = useState(''); const [modalOpen, setModalOpen] = useState(false); const [form, setForm] = useState<MealAvailability>({ id: '', date: '', packageId: '', capacity: 0 });
   const persist = (next: MealAvailability[]) => { setData(next); writeStorage(mealAvailabilityKey, next); };
-  const getPackage = (id: string) => packages.find((item) => item.id === id); const bookedPax = (record: MealAvailability) => bookings.filter((item) => item.eventDate === record.date && item.packageId === record.packageId && item.bookingStatus === 'Confirmed').reduce((sum, item) => sum + item.totalPax, 0); const statusFor = (remaining: number) => remaining <= 0 ? 'Full' : remaining < 100 ? 'Limited' : 'Available';
-  const rows = data.filter((record) => { const pkg = getPackage(record.packageId); return (!dateFilter || record.date === dateFilter) && (!categoryFilter || pkg?.categoryId === categoryFilter) && (!typeFilter || pkg?.mealType === typeFilter) && (!packageFilter || record.packageId === packageFilter); });
-  const save = () => { const capacity = Number(form.capacity); if (!form.date || !form.packageId) return toast.error('Validation Error', 'Date and meal package are required.'); if (!Number.isInteger(capacity) || capacity <= 0) return toast.error('Validation Error', 'Capacity must be a positive number.'); const duplicate = data.some((item) => item.date === form.date && item.packageId === form.packageId && item.id !== form.id); if (duplicate) return toast.error('Duplicate Availability', 'Availability already exists for this date and package.'); persist(form.id ? data.map((item) => item.id === form.id ? { ...form, capacity } : item) : [...data, { ...form, capacity, id: `ma-${Math.random().toString(36).slice(2)}` }]); toast.success(form.id ? 'Availability updated' : 'Availability created'); setModalOpen(false); };
-  const columns: Column<MealAvailability>[] = [{ key: 'date', header: 'Date' }, { key: 'package', header: 'Meal Package', render: (item) => getPackage(item.packageId)?.name ?? 'Unknown' }, { key: 'mealType', header: 'Meal Type', render: (item) => getPackage(item.packageId)?.mealType ?? '-' }, { key: 'capacity', header: 'Capacity', align: 'right' }, { key: 'booked', header: 'Booked Pax', align: 'right', render: (item) => bookedPax(item) }, { key: 'remaining', header: 'Remaining Pax', align: 'right', render: (item) => Math.max(0, item.capacity - bookedPax(item)) }, { key: 'status', header: 'Status', render: (item) => <StatusBadge status={statusFor(item.capacity - bookedPax(item))} /> }, { key: 'actions', header: 'Actions', align: 'center', render: (item) => <button type="button" onClick={() => { setForm(item); setModalOpen(true); }} className="rounded p-1.5 text-brown-500 hover:bg-cream-100" title="Edit"><Edit className="h-4 w-4" /></button> }];
+  const getPackage = (id: string) => packages.find((item) => item.id === id); const bookedPax = (record: MealAvailability) => bookings.filter((item) => item.eventDate === record.date && item.packageId === record.packageId && item.bookingStatus === 'Confirmed').reduce((sum, item) => sum + item.totalPax, 0); const statusFor = (record: MealAvailability) => { const remaining = record.capacity - bookedPax(record); return record.status === 'Closed/Blocked' ? 'Closed/Blocked' : remaining <= 0 ? 'Fully Booked' : remaining < record.capacity ? 'Partially Available' : 'Available'; };
+  const rows = data.filter((record) => { const pkg = getPackage(record.packageId); const category = categories.find((item) => item.id === pkg?.categoryId); return (!dateFilter || record.date === dateFilter) && (!categoryFilter || pkg?.categoryId === categoryFilter) && (!typeFilter || category?.name === typeFilter) && (!packageFilter || record.packageId === packageFilter); });
+  const save = () => { const capacity = Number(form.capacity); const booked = form.id ? bookedPax(form) : 0; if (!form.date || !form.packageId) return toast.error('Validation Error', 'Date and meal package are required.'); if (!Number.isInteger(capacity) || capacity <= 0) return toast.error('Validation Error', 'Capacity must be a positive number.'); if (capacity < booked) return toast.error('Validation Error', 'Capacity cannot be less than booked pax.'); const duplicate = data.some((item) => item.date === form.date && item.packageId === form.packageId && item.id !== form.id); if (duplicate) return toast.error('Duplicate Availability', 'Availability already exists for this date and package.'); persist(form.id ? data.map((item) => item.id === form.id ? { ...form, capacity } : item) : [...data, { ...form, capacity, id: `ma-${Math.random().toString(36).slice(2)}` }]); toast.success(form.id ? 'Availability updated' : 'Availability created'); setModalOpen(false); };
+  const columns: Column<MealAvailability>[] = [{ key: 'date', header: 'Date' }, { key: 'package', header: 'Meal Package', render: (item) => getPackage(item.packageId)?.name ?? 'Unknown' }, { key: 'mealType', header: 'Meal Type', render: (item) => categories.find((category) => category.id === getPackage(item.packageId)?.categoryId)?.name ?? '-' }, { key: 'capacity', header: 'Capacity', align: 'right' }, { key: 'booked', header: 'Booked Pax', align: 'right', render: (item) => bookedPax(item) }, { key: 'remaining', header: 'Remaining Pax', align: 'right', render: (item) => Math.max(0, item.capacity - bookedPax(item)) }, { key: 'status', header: 'Status', render: (item) => <StatusBadge status={statusFor(item)} /> }, { key: 'actions', header: 'Actions', align: 'center', render: (item) => <button type="button" onClick={() => { setForm(item); setModalOpen(true); }} className="rounded p-1.5 text-brown-500 hover:bg-cream-100" title="Edit"><Edit className="h-4 w-4" /></button> }];
   return <div><PageHeader title="Meal Availability Management" description="Manage date-wise meal package capacity" actions={<button type="button" className="btn-primary" onClick={() => { setForm({ id: '', date: '', packageId: '', capacity: 0 }); setModalOpen(true); }}><Plus className="h-4 w-4" />Add Availability</button>} /><div className="card p-4"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><TextInput type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} /><select className="input" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}><option value="">All Categories</option>{categories.filter((item) => item.status === 'Active').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><select className="input" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}><option value="">All Meal Types</option>{mealTypeOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select><select className="input" value={packageFilter} onChange={(e) => setPackageFilter(e.target.value)}><option value="">All Packages</option>{packages.filter((item) => item.status === 'Active').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div></div><div className="card mt-4"><DataTable columns={columns} data={rows} emptyMessage="No availability configured" /></div><Modal open={modalOpen} onClose={() => setModalOpen(false)} title={form.id ? 'Edit Availability' : 'Add Availability'} size="md" footer={<><button type="button" className="btn-outline" onClick={() => setModalOpen(false)}>Cancel</button><button type="button" className="btn-primary" onClick={save}>Save</button></>}><div className="grid gap-4 sm:grid-cols-2"><FormField label="Date" required><TextInput type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></FormField><FormField label="Capacity" required><TextInput type="number" min="1" value={String(form.capacity || '')} onChange={(e) => setForm({ ...form, capacity: Number(e.target.value) })} /></FormField><FormField label="Meal Package" required className="sm:col-span-2"><Dropdown value={form.packageId} onChange={(value) => setForm({ ...form, packageId: value })} options={packages.filter((item) => item.status === 'Active').map((item) => ({ label: `${item.name} (${item.mealType})`, value: item.id }))} placeholder="Select meal package" /></FormField></div></Modal></div>;
 }
 

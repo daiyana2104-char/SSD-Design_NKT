@@ -7,7 +7,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { FormField, TextInput, Toggle, MultiSelect } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
-import { hallPackages as initial, hallPurposes as purposes, halls as hallsList, type HallPackage } from '@/lib/mockData';
+import { hallPackages as initial, hallPurposes as purposes, halls as hallsList, glRecords, type HallPackage } from '@/lib/mockData';
 
 const PAGE_SIZE = 6;
 
@@ -29,8 +29,8 @@ export function HallPackageMaster() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const openCreate = () => { setEditing(null); setForm({ name: '', purpose: purposes.find(p => p.status === 'Active')?.id ?? '', halls: [], status: 'Active', gstApplicable: false, inclusions: [], description: '', termsAndConditions: '' }); setModalOpen(true); };
-  const openEdit = (p: HallPackage) => { setEditing(p); setForm({ ...p, purpose: p.purpose ?? '', halls: p.halls ?? [], status: p.status ?? 'Active', gstApplicable: !!p.gstApplicable, inclusions: p.inclusions ?? [], description: p.description ?? '', termsAndConditions: p.termsAndConditions ?? '' }); setModalOpen(true); };
+  const openCreate = () => { setEditing(null); setForm({ name: '', purpose: purposes.find(p => p.status === 'Active')?.id ?? '', halls: [], status: 'Active', glCode: '', description: '' }); setModalOpen(true); };
+  const openEdit = (p: HallPackage) => { setEditing(p); setForm({ ...p, purpose: p.purpose ?? '', halls: p.halls ?? [], status: p.status ?? 'Active', glCode: p.glCode ?? '', description: p.description ?? '' }); setModalOpen(true); };
 
   const handleSave = () => {
     const name = form.name?.trim() ?? '';
@@ -52,16 +52,16 @@ export function HallPackageMaster() {
     const status = form.status ?? 'Active';
 
     if (editing) {
-      const updated: HallPackage = { ...editing, name, purpose, sessionDurationHours: safeSession, price: safePrice, advanceAmount: Number(form.advanceAmount ?? editing.advanceAmount ?? 0), depositAmount: Number(form.depositAmount ?? editing.depositAmount ?? 0), additionalHourRate: Number(form.additionalHourRate ?? editing.additionalHourRate ?? 0), gstApplicable: !!form.gstApplicable, description: form.description ?? editing.description ?? '', termsAndConditions: form.termsAndConditions ?? editing.termsAndConditions ?? '', inclusions: form.inclusions ?? editing.inclusions ?? [], halls, status };
+      const updated: HallPackage = { ...editing, name, purpose, sessionDurationHours: safeSession, price: safePrice, advanceAmount: Number(form.advanceAmount ?? editing.advanceAmount ?? 0), depositAmount: Number(form.depositAmount ?? editing.depositAmount ?? 0), additionalHourRate: Number(form.additionalHourRate ?? editing.additionalHourRate ?? 0), glCode: form.glCode || undefined, description: form.description ?? editing.description ?? '', halls, status };
       setData(prev => prev.map(d => d.id === editing.id ? updated : d));
       toast.success('Package updated');
     } else {
-      const newRec: HallPackage = { id: 'pkg-' + Math.random().toString(36).slice(2), name, purpose, sessionDurationHours: safeSession, price: safePrice, advanceAmount: Number(form.advanceAmount ?? 0), depositAmount: Number(form.depositAmount ?? 0), additionalHourRate: Number(form.additionalHourRate ?? 0), gstApplicable: !!form.gstApplicable, description: form.description ?? '', termsAndConditions: form.termsAndConditions ?? '', inclusions: form.inclusions ?? [], halls, status };
+      const newRec: HallPackage = { id: 'pkg-' + Math.random().toString(36).slice(2), name, purpose, sessionDurationHours: safeSession, price: safePrice, advanceAmount: Number(form.advanceAmount ?? 0), depositAmount: Number(form.depositAmount ?? 0), additionalHourRate: Number(form.additionalHourRate ?? 0), glCode: form.glCode || undefined, description: form.description ?? '', halls, status };
       setData(prev => [...prev, newRec]);
       toast.success('Package created');
     }
 
-    setModalOpen(false); setEditing(null); setForm({ status: 'Active', gstApplicable: false, inclusions: [] });
+    setModalOpen(false); setEditing(null); setForm({ status: 'Active' });
   };
 
   const handleDelete = () => { if (!deleteTarget) return; setData(prev => prev.filter(p => p.id !== deleteTarget.id)); toast.success('Package deleted'); setDeleteTarget(null); };
@@ -101,10 +101,6 @@ export function HallPackageMaster() {
 
           <FormField label="Additional Hour Rate"><TextInput type="number" min={0} value={String(form.additionalHourRate ?? '')} onChange={(e) => setForm({ ...form, additionalHourRate: Number(e.target.value) })} /></FormField>
 
-          <FormField label="GST Applicable"><Toggle checked={!!form.gstApplicable} onChange={(v) => setForm({ ...form, gstApplicable: v })} trueLabel="Yes" falseLabel="No" /></FormField>
-
-          <FormField label="Status"><Toggle checked={form.status === 'Active'} onChange={(v) => setForm({ ...form, status: v ? 'Active' : 'Inactive' })} trueLabel="Active" falseLabel="Inactive" /></FormField>
-
           <FormField label="Halls - Multiple Selection" className="sm:col-span-2">
             <MultiSelect
               values={form.halls ?? []}
@@ -114,11 +110,11 @@ export function HallPackageMaster() {
             />
           </FormField>
 
-          <FormField label="Package Inclusions" className="sm:col-span-2"><TextInput value={(form.inclusions ?? []).join(', ')} onChange={(e) => setForm({ ...form, inclusions: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} /></FormField>
-
           <FormField label="Description" className="sm:col-span-2"><TextInput value={form.description ?? ''} onChange={(e) => setForm({ ...form, description: e.target.value })} /></FormField>
 
-          <FormField label="Terms & Conditions" className="sm:col-span-2"><TextInput value={form.termsAndConditions ?? ''} onChange={(e) => setForm({ ...form, termsAndConditions: e.target.value })} /></FormField>
+          <FormField label="GL"><Dropdown value={form.glCode ?? ''} onChange={(value) => setForm({ ...form, glCode: value })} options={glRecords.filter(gl => gl.status === 'Active').map(gl => ({ label: `${gl.glCode} - ${gl.glName}`, value: gl.glCode }))} placeholder="Select GL" /></FormField>
+
+          <FormField label="Status"><Toggle checked={form.status === 'Active'} onChange={(v) => setForm({ ...form, status: v ? 'Active' : 'Inactive' })} trueLabel="Active" falseLabel="Inactive" /></FormField>
 
         </div>
       </Modal>

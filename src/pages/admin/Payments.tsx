@@ -155,13 +155,13 @@ export function CancellationRefunds() {
             <div><p className="text-xs text-brown-400">Customer</p><p className="text-sm font-medium text-brown-800">{processTarget.customer}</p></div>
             <div><p className="text-xs text-brown-400">Original Amount</p><p className="text-sm font-medium text-brown-800">{formatSGD(processTarget.originalAmount)}</p></div>
             <div><p className="text-xs text-brown-400">Refundable Amount</p><p className="text-sm font-medium text-brown-800">{formatSGD(processTarget.refundableAmount)}</p></div>
-            <FormField label="Cancellation Status"><select className="input" defaultValue={processTarget.cancellationStatus}><option>Requested</option><option>Approved</option><option>Rejected</option><option>Cancelled</option></select></FormField>
             <FormField label="Actual Refund Amount"><input type="number" step="0.01" className="input" defaultValue={processTarget.actualRefund} /></FormField>
             <FormField label="Refund Mode" hint="Manual entry - no automatic PayNow refund"><select className="input" defaultValue={processTarget.refundMode}><option>Not Applicable</option><option>Cash</option><option>PayNow</option><option>NETS</option><option>Cheque</option></select></FormField>
             <FormField label="Refund Date"><input type="date" className="input" /></FormField>
             <FormField label="Refund Reference"><input type="text" className="input" defaultValue={processTarget.refundRef} /></FormField>
-            <FormField label="Refund Status"><select className="input" defaultValue={processTarget.refundStatus}><option>Not Applicable</option><option>Pending</option><option>Processed</option></select></FormField>
             <FormField label="Remarks" className="sm:col-span-2"><TextArea defaultValue={processTarget.remarks} /></FormField>
+            <FormField label="Cancellation Status"><select className="input" defaultValue={processTarget.cancellationStatus}><option>Requested</option><option>Approved</option><option>Rejected</option><option>Cancelled</option></select></FormField>
+            <FormField label="Refund Status"><select className="input" defaultValue={processTarget.refundStatus}><option>Not Applicable</option><option>Pending</option><option>Processed</option></select></FormField>
           </div>
         )}
       </Modal>
