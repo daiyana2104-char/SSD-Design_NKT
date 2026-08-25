@@ -392,9 +392,9 @@ export const hallCategories: HallCategory[] = [
 ];
 
 export const halls: Hall[] = [
-  { id: 'h1', code: 'H-WED-03', name: 'Wedding Hall - Level 3', categoryId: 'hc1', level: 'Level 3', seatingCapacity: 300, minBookingHours: 3, hourlyRate: 200, depositApplicable: true, depositAmount: 500, additionalHourRate: 250, images: [], status: 'Active' },
-  { id: 'h2', code: 'H-FUN-02', name: 'Function Hall - Level 2', categoryId: 'hc2', level: 'Level 2', seatingCapacity: 150, minBookingHours: 2, hourlyRate: 120, depositApplicable: true, depositAmount: 300, additionalHourRate: 150, images: [], status: 'Active' },
-  { id: 'h3', code: 'H-DIN-01', name: 'Dining Hall - Level 1', categoryId: 'hc3', level: 'Level 1', seatingCapacity: 200, minBookingHours: 2, hourlyRate: 100, depositApplicable: false, depositAmount: 0, additionalHourRate: 120, images: [], status: 'Active' },
+  { id: 'h1', code: 'H-WED-03', name: 'Wedding Hall - Level 3', categoryId: 'hc1', level: 'Level 3', seatingCapacity: 300, minBookingHours: 3, hourlyRate: 200, depositApplicable: true, depositAmount: 500, additionalHourRate: 250, images: [], glCode: 'GL-2002', status: 'Active' },
+  { id: 'h2', code: 'H-FUN-02', name: 'Function Hall - Level 2', categoryId: 'hc2', level: 'Level 2', seatingCapacity: 150, minBookingHours: 2, hourlyRate: 120, depositApplicable: true, depositAmount: 300, additionalHourRate: 150, images: [], glCode: 'GL-2002', status: 'Active' },
+  { id: 'h3', code: 'H-DIN-01', name: 'Dining Hall - Level 1', categoryId: 'hc3', level: 'Level 1', seatingCapacity: 200, minBookingHours: 2, hourlyRate: 100, depositApplicable: false, depositAmount: 0, additionalHourRate: 120, images: [], glCode: 'GL-2002', status: 'Active' },
 ];
 
 export const hallPackages: HallPackage[] = [
