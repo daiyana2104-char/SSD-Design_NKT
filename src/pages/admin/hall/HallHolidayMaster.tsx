@@ -71,7 +71,7 @@ export function HallHolidayMaster() {
     <div>
       <PageHeader title="Holiday Master" description="Manage holidays that affect hall availability" actions={<button type="button" className="btn-primary" onClick={openCreate}><Plus className="h-4 w-4"/>Add Holiday</button>} />
 
-      <div className="card p-4"><SearchFilterBar search={search} onSearch={(v) => { setSearch(v); setPage(1); }} placeholder="Search holidays..." filters={[]} /></div>
+      <div className="card p-4"><SearchFilterBar search={search} onSearch={(v) => { setSearch(v); setPage(1); }} searchPlaceholder="Search holidays..." filters={[]} /></div>
 
       <div className="card mt-4"><DataTable columns={columns} data={paged} /><Pagination page={page} totalPages={totalPages} onPage={setPage} totalItems={filtered.length} pageSize={PAGE_SIZE} /></div>
 

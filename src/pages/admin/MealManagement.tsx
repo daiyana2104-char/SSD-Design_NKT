@@ -251,7 +251,7 @@ function MealCategoryMasterScreen() {
     <div>
       <PageHeader title="Meal Category Master" description="Manage categories for meal packages" actions={<button type="button" className="btn-primary" onClick={openCreate}><Plus className="h-4 w-4" />Add Category</button>} />
       <div className="card p-4">
-        <SearchFilterBar search={search} onSearch={(value) => { setSearch(value); setPage(1); }} placeholder="Search category code or name..." filters={[]} />
+        <SearchFilterBar search={search} onSearch={(value) => { setSearch(value); setPage(1); }} searchPlaceholder="Search category code or name..." filters={[]} />
       </div>
       <div className="card mt-4">
         <DataTable columns={columns} data={paged} />

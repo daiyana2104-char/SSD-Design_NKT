@@ -53,6 +53,7 @@ export interface Hall {
   additionalHourRate?: number;
   images?: string[];
   glCode?: string;
+  description?: string;
   status: 'Active' | 'Inactive';
 }
 
@@ -90,6 +91,44 @@ export interface AdditionalService {
   status: 'Active' | 'Inactive';
 }
 
+export interface HallAdditionalServiceLine {
+  serviceId: string;
+  serviceName: string;
+  pricingType: string;
+  rate: number;
+  quantity: number; // hours / units / persons
+  amount: number;
+}
+
+export interface MealPackageMaster {
+  id: string;
+  code: string;
+  name: string;
+  categoryId: string;
+  packageType: 'Vegetarian' | 'Non-Vegetarian' | 'Mixed';
+  paxType: 'Adult' | 'Child' | 'Both';
+  pricePerPax: number;
+  minimumPax: number;
+  maximumPax?: number;
+  glCode?: string;
+  description: string;
+  status: 'Active' | 'Inactive';
+  itemIds: string[];
+}
+
+export interface HallCancellationRecord {
+  cancellationDate: string;
+  cancellationReason: string;
+  cancellationRemarks?: string;
+  cancelledBy: string;
+  refundApplicable: boolean;
+  refundAmount?: number;
+  refundMode?: string;
+  refundReference?: string;
+  refundDate?: string;
+  refundRemarks?: string;
+}
+
 export interface HallBooking {
   id: string;
   bookingRef: string;
@@ -102,10 +141,27 @@ export interface HallBooking {
   endTime: string; // ISO time
   guests?: number;
   mealsRequired?: boolean;
+  mealPackageId?: string;
+  mealType?: string;
+  adultPax?: number;
+  childPax?: number;
+  additionalServices?: HallAdditionalServiceLine[];
+  glCode?: string;
+  hallAmount?: number;
+  additionalServiceAmount?: number;
+  mealAmount?: number;
+  gstRate?: number;
+  gstAmount?: number;
+  grandTotal?: number;
+  advanceAmount?: number;
+  paymentMode?: string;
   status: 'Booked' | 'Partially Paid' | 'Paid' | 'Completed' | 'Cancelled' | 'Refund Pending' | 'Refunded';
+  paymentStatus: 'Pending' | 'Partially Paid' | 'Paid' | 'Refunded' | 'Partially Refunded';
+  bookingStatus: 'Draft' | 'Confirmed' | 'Cancelled' | 'Completed';
   totalAmount: number;
   paidAmount: number;
   depositAmount: number;
+  cancellationDetails?: HallCancellationRecord;
   createdAt: string;
 }
 
@@ -119,6 +175,14 @@ export interface HallPayment {
   collectedBy?: string;
   paymentType?: 'Advance Payment' | 'Partial Payment' | 'Balance Payment';
   remarks?: string;
+}
+
+export interface PaymentMode {
+  id: string;
+  name: string;
+  description: string;
+  publicAvailability: string;
+  status: string;
 }
 
 export interface HallAudit {
@@ -164,8 +228,8 @@ export interface SubCategory {
 }
 
 export interface EventSlot {
-  slotName: string;  slotDate: string; startTime: string; endTime: string; seats: number; status: string;
-  slotTime?: string; session?: string; slotName?: string; maxCount?: number;
+  slotName?: string; slotDate?: string; startTime: string; endTime: string; seats: number; status: string;
+  slotTime?: string; session?: string; maxCount?: number;
 }
 
 export interface EventMaster {
@@ -431,6 +495,23 @@ export const hallBookings: HallBooking[] = [];
 export const hallPayments: HallPayment[] = [];
 
 export const hallAudits: HallAudit[] = [];
+
+export const paymentModes: PaymentMode[] = [
+  { id: 'pm1', name: 'Cash', description: 'Cash payment at counter', publicAvailability: 'Yes', status: 'Active' },
+  { id: 'pm2', name: 'PayNow', description: 'PayNow transfer', publicAvailability: 'Yes', status: 'Active' },
+  { id: 'pm3', name: 'DBS', description: 'DBS bank transfer', publicAvailability: 'No', status: 'Active' },
+  { id: 'pm4', name: 'NETS', description: 'NETS payment', publicAvailability: 'Yes', status: 'Active' },
+  { id: 'pm5', name: 'Card', description: 'Credit/Debit card payment', publicAvailability: 'Yes', status: 'Active' },
+  { id: 'pm6', name: 'Bank Transfer', description: 'Generic bank transfer', publicAvailability: 'No', status: 'Active' },
+  { id: 'pm7', name: 'Online', description: 'Online payment gateway', publicAvailability: 'Yes', status: 'Active' },
+  { id: 'pm8', name: 'UPI', description: 'UPI payment', publicAvailability: 'Yes', status: 'Active' },
+];
+
+export const mealPackagesMaster: MealPackageMaster[] = [
+  { id: 'mp1', code: 'MEAL001', name: 'Annadhanam Package', categoryId: 'mc2', packageType: 'Vegetarian', paxType: 'Both', pricePerPax: 10, minimumPax: 1, glCode: 'GL-2002', description: 'Meal package for devotees.', status: 'Active', itemIds: ['meal-i1'] },
+  { id: 'mp2', code: 'MEAL002', name: 'Special Meal Set', categoryId: 'mc3', packageType: 'Mixed', paxType: 'Both', pricePerPax: 15, minimumPax: 10, maximumPax: 500, glCode: 'GL-2002', description: 'Special meal package for events.', status: 'Active', itemIds: ['meal-i4', 'meal-i5'] },
+  { id: 'mp3', code: 'MEAL003', name: 'Wedding Feast Package', categoryId: 'mc2', packageType: 'Vegetarian', paxType: 'Both', pricePerPax: 25, minimumPax: 50, maximumPax: 500, glCode: 'GL-2002', description: 'Full wedding feast with multiple courses.', status: 'Active', itemIds: ['meal-i1', 'meal-i4', 'meal-i5', 'meal-i7'] },
+];
 
 export const gstRecords: Gst[] = [
   { id: 'g1', gstType: 'Standard Rate', percentage: 9, gstCode: 'SR9', effectiveStart: '2024-01-01', effectiveEnd: '', status: 'Active', createdDate: '01/01/2024', updatedDate: '01/01/2024' },

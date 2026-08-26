@@ -44,7 +44,7 @@ export function HallAvailability() {
     { key: 'ref', header: 'Booking Ref', render: (b) => b.bookingRef },
     { key: 'hall', header: 'Hall', render: (b) => b.hallName },
     { key: 'time', header: 'Time', render: (b) => `${formatTime(b.startTime)} - ${formatTime(b.endTime)}` },
-    { key: 'status', header: 'Status', render: (b) => b.bookingStatus },
+    { key: 'status', header: 'Status', render: (b) => b.status },
   ];
 
   return (

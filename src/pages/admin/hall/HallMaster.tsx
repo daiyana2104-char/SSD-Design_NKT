@@ -168,7 +168,7 @@ export function HallMaster() {
       <PageHeader title="Hall Master" description="Manage halls and their rates" actions={<button type="button" className="btn-primary" onClick={openCreate}><Plus className="h-4 w-4"/>Add Hall</button>} />
 
       <div className="card p-4">
-        <SearchFilterBar search={search} onSearch={(v) => { setSearch(v); setPage(1); }} placeholder="Search hall code or name..." filters={[]} />
+        <SearchFilterBar search={search} onSearch={(v) => { setSearch(v); setPage(1); }} searchPlaceholder="Search hall code or name..." filters={[]} />
       </div>
 
       <div className="card mt-4">

@@ -497,7 +497,7 @@ export function UnitMaster() {
 
             setPage(1);
           }}
-          placeholder="Search unit code or name..."
+          searchPlaceholder="Search unit code or name..."
           filters={[
             {
               label:

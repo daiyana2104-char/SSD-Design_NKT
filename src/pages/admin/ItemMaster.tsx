@@ -14,7 +14,7 @@ const PAGE_SIZE = 5;
 const statusOptions: FilterOption[] = [{ label: 'All Status', value: '' }, { label: 'Active', value: 'Active' }, { label: 'Inactive', value: 'Inactive' }];
 const yesNoOptions = [{ label: 'Yes', value: 'Yes' }, { label: 'No', value: 'No' }];
 
-interface CatRow { category: string; subCategory: string; displayOrder: number; mapping: string; }
+interface CatRow { category: string; subCategory: string; salePrice: number; displayOrder: number; mapping: string; }
 
 export function ItemMaster() {
   const toast = useToast();
@@ -43,7 +43,7 @@ export function ItemMaster() {
   };
   const openEdit = (i: Item) => {
     setEditing(i); setForm(i); setStatus(i.status);
-    setCatRows((i.categories ?? []).map((c: { category: string; subCategory?: string; displayOrder: number; mapping: string }) => ({ category: c.category, subCategory: c.subCategory ?? '', displayOrder: c.displayOrder, mapping: c.mapping })));
+    setCatRows((i.categories ?? []).map((c: { category: string; subCategory?: string; salePrice?: number; displayOrder: number; mapping: string }) => ({ category: c.category, subCategory: c.subCategory ?? '', salePrice: c.salePrice ?? 0, displayOrder: c.displayOrder, mapping: c.mapping })));
     setModalOpen(true);
   };
 
@@ -76,7 +76,7 @@ export function ItemMaster() {
 
   const handleDelete = () => { if (deleteTarget) { setData((prev) => prev.filter((i) => i.id !== deleteTarget.id)); toast.success('Item deleted'); setDeleteTarget(null); } };
 
-  const addCatRow = () => setCatRows((prev) => [...prev, { category: '', subCategory: '',   displayOrder: prev.length + 1, mapping: '' }]);
+  const addCatRow = () => setCatRows((prev) => [...prev, { category: '', subCategory: '', salePrice: 0, displayOrder: prev.length + 1, mapping: '' }]);
   const removeCatRow = (i: number) => setCatRows((prev) => prev.filter((_, idx) => idx !== i));
   const updateCatRow = (i: number, field: keyof CatRow, val: string | number) => setCatRows((prev) => prev.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
 

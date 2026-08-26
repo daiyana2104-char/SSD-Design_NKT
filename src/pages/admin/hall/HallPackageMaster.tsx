@@ -168,7 +168,7 @@ export function HallPackageMaster() {
       <PageHeader title="Hall Package Master" description="Create and manage hall packages" actions={<button type="button" className="btn-primary" onClick={openCreate}><Plus className="h-4 w-4"/>Add Package</button>} />
 
       <div className="card p-4">
-        <SearchFilterBar search={search} onSearch={(v) => { setSearch(v); setPage(1); }} placeholder="Search packages..." filters={[]} />
+        <SearchFilterBar search={search} onSearch={(v) => { setSearch(v); setPage(1); }} searchPlaceholder="Search packages..." filters={[]} />
       </div>
 
       <div className="card mt-4">
