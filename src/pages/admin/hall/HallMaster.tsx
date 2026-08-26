@@ -5,12 +5,51 @@ import { DataTable, type Column } from '@/components/ui/DataTable';
 import { SearchFilterBar } from '@/components/ui/SearchFilterBar';
 import { Pagination } from '@/components/ui/Pagination';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
-import { FormField, TextInput, TextArea, Toggle, Dropdown } from '@/components/ui/Form';
+import { FormField, TextInput, TextArea, Toggle } from '@/components/ui/Form';
 import { FileUpload } from '@/components/ui/FileUpload';
 import { useToast } from '@/components/ui/Toast';
-import { halls as initial, hallCategories as categories, glRecords, type Hall } from '@/lib/mockData';
+import {
+  halls as initial,
+  hallCategories as categories,
+  hallBookings as mockHallBookings,
+  hallPackages,
+  type Hall,
+} from '@/lib/mockData';
+import { hallBookings as seedBookings } from '@/lib/hallData';
 
 const PAGE_SIZE = 5;
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Returns true if the given hall has at least one future booking
+ * (either a direct booking or via a package that includes this hall).
+ * "Future" = eventDate is today or later AND bookingStatus is not Cancelled/Completed.
+ */
+function hasFutureBookings(hallId: string): boolean {
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Check direct bookings from hallData seed + any runtime bookings from mockData
+  const allBookings = [...seedBookings, ...mockHallBookings];
+
+  return allBookings.some((b) => {
+    if (b.eventDate < today) return false;
+    if (b.bookingStatus === 'Cancelled' || b.bookingStatus === 'Completed') return false;
+
+    // Direct hall booking
+    if (b.hallIds.includes(hallId)) return true;
+
+    // Package-based booking — check if the package includes this hall
+    if (b.packageId) {
+      const pkg = hallPackages.find((p) => p.id === b.packageId);
+      if (pkg && pkg.halls.includes(hallId)) return true;
+    }
+
+    return false;
+  });
+}
+
+// ─── component ────────────────────────────────────────────────────────────────
 
 export function HallMaster() {
   const toast = useToast();
@@ -21,35 +60,38 @@ export function HallMaster() {
   const [editing, setEditing] = useState<Hall | null>(null);
   const [viewing, setViewing] = useState<Hall | null>(null);
   const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
-  const [form, setForm] = useState<Partial<Hall>>({ depositApplicable: false, status: 'Active', glCode: 'GL-2002' });
-  const [deleteTarget, setDeleteTarget] = useState<Hall | null>(null);
+  const [form, setForm] = useState<Partial<Hall>>({ status: 'Active' });
+  const [deactivateTarget, setDeactivateTarget] = useState<Hall | null>(null);
 
+  // ── filtered list ─────────────────────────────────────────────
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return data.filter((r) => !q || r.name.toLowerCase().includes(q) || r.code.toLowerCase().includes(q));
+    return data.filter(
+      (r) =>
+        !q ||
+        r.name.toLowerCase().includes(q) ||
+        r.code.toLowerCase().includes(q),
+    );
   }, [data, search]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const activeGlRecords = glRecords.filter((g) => g.status === 'Active');
+  // ── active categories for dropdown ────────────────────────────
+  const activeCategories = categories.filter((c) => c.status === 'Active');
 
+  // ── open helpers ───────────────────────────────────────────────
   const openCreate = () => {
     setEditing(null);
     setViewing(null);
     setForm({
       code: '',
       name: '',
-      categoryId: categories.find(c => c.status === 'Active')?.id ?? '',
-      level: '',
-      seatingCapacity: 0,
-      minBookingHours: 1,
-      hourlyRate: 0,
-      depositApplicable: false,
+      categoryId: activeCategories[0]?.id ?? '',
+      seatingCapacity: undefined,
       depositAmount: 0,
-      additionalHourRate: 0,
+      description: '',
       images: [],
-      glCode: activeGlRecords[0]?.glCode ?? '',
       status: 'Active',
     });
     setStatus('Active');
@@ -59,7 +101,7 @@ export function HallMaster() {
   const openEdit = (record: Hall) => {
     setEditing(record);
     setViewing(null);
-    setForm(record);
+    setForm({ ...record });
     setStatus(record.status);
     setModalOpen(true);
   };
@@ -67,49 +109,84 @@ export function HallMaster() {
   const openView = (record: Hall) => {
     setViewing(record);
     setEditing(null);
-    setForm(record);
+    setForm({ ...record });
     setStatus(record.status);
     setModalOpen(true);
   };
 
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditing(null);
+    setViewing(null);
+    setForm({ status: 'Active' });
+  };
+
+  // ── save ───────────────────────────────────────────────────────
   const handleSave = () => {
     const code = form.code?.trim() ?? '';
     const name = form.name?.trim() ?? '';
     const categoryId = form.categoryId ?? '';
 
+    // ── required field validation ──
     if (!code) return toast.error('Validation Error', 'Hall Code is required.');
     if (!name) return toast.error('Validation Error', 'Hall Name is required.');
     if (!categoryId) return toast.error('Validation Error', 'Hall Category is required.');
-    if (!Number.isFinite(Number(form.seatingCapacity)) || Number(form.seatingCapacity) <= 0) return toast.error('Validation Error', 'Seating Capacity must be greater than 0.');
-    if (!Number.isFinite(Number(form.minBookingHours)) || Number(form.minBookingHours) <= 0) return toast.error('Validation Error', 'Minimum Booking Hours must be greater than 0.');
-    if (!Number.isFinite(Number(form.hourlyRate)) || Number(form.hourlyRate) < 0) return toast.error('Validation Error', 'Standard Hourly Rate must be numeric and non-negative.');
-    if (!Number.isFinite(Number(form.additionalHourRate)) || Number(form.additionalHourRate) < 0) return toast.error('Validation Error', 'Additional Hour Rate must be numeric and non-negative.');
-    if (form.depositApplicable && (!Number.isFinite(Number(form.depositAmount)) || Number(form.depositAmount) <= 0)) {
-      return toast.error('Validation Error', 'Deposit Amount must be greater than 0 when Deposit Applicable is Yes.');
+
+    // ── seating capacity: positive integer ──
+    const capacityRaw = form.seatingCapacity;
+    const capacity = Number(capacityRaw);
+    if (
+      capacityRaw === undefined ||
+      capacityRaw === null ||
+      !Number.isFinite(capacity) ||
+      !Number.isInteger(capacity) ||
+      capacity <= 0
+    ) {
+      return toast.error('Validation Error', 'Seating Capacity must be a positive whole number.');
     }
 
-    const dup = data.some((r) => r.code.toLowerCase() === code.toLowerCase() && r.id !== editing?.id);
-    if (dup) return toast.error('Duplicate Code', 'Hall code already exists.');
+    // ── deposit amount: non-negative ──
+    const depositAmount = Number(form.depositAmount ?? 0);
+    if (!Number.isFinite(depositAmount) || depositAmount < 0) {
+      return toast.error('Validation Error', 'Deposit Amount must be zero or a positive amount.');
+    }
 
-    const normalizedStatus = status ?? 'Active';
-    const depositAmount = form.depositApplicable ? Number(form.depositAmount ?? 0) : 0;
+    // ── duplicate code check (exclude self on edit) ──
+    const dupCode = data.some(
+      (r) => r.code.trim().toLowerCase() === code.toLowerCase() && r.id !== editing?.id,
+    );
+    if (dupCode) return toast.error('Duplicate Code', 'A hall with this code already exists.');
+
+    // ── duplicate name check (exclude self on edit) ──
+    const dupName = data.some(
+      (r) => r.name.trim().toLowerCase() === name.toLowerCase() && r.id !== editing?.id,
+    );
+    if (dupName) return toast.error('Duplicate Name', 'A hall with this name already exists.');
+
+    // ── active → inactive: check future bookings ──
+    const newStatus = status;
+    if (editing && editing.status === 'Active' && newStatus === 'Inactive') {
+      if (hasFutureBookings(editing.id)) {
+        return toast.error(
+          'Cannot Deactivate',
+          'Hall cannot be deactivated because future bookings exist for this hall. ' +
+          'Please complete, cancel or reschedule the associated bookings before deactivating the hall.',
+        );
+      }
+    }
 
     if (editing) {
+      // Preserve all legacy optional fields that exist on the record
       const updated: Hall = {
         ...editing,
         code,
         name,
         categoryId,
-        level: form.level ?? editing.level ?? '',
-        seatingCapacity: Number(form.seatingCapacity ?? editing.seatingCapacity ?? 0),
-        minBookingHours: Number(form.minBookingHours ?? editing.minBookingHours ?? 1),
-        hourlyRate: Number(form.hourlyRate ?? editing.hourlyRate ?? 0),
-        depositApplicable: !!form.depositApplicable,
+        seatingCapacity: capacity,
         depositAmount,
-        additionalHourRate: Number(form.additionalHourRate ?? editing.additionalHourRate ?? 0),
-        glCode: form.glCode || undefined,
+        description: form.description?.trim() ?? editing.description ?? '',
         images: form.images ?? editing.images ?? [],
-        status: normalizedStatus,
+        status: newStatus,
       };
       setData((prev) => prev.map((r) => (r.id === editing.id ? updated : r)));
       toast.success('Hall updated');
@@ -119,78 +196,170 @@ export function HallMaster() {
         code,
         name,
         categoryId,
-        level: form.level ?? '',
-        seatingCapacity: Number(form.seatingCapacity ?? 0),
-        minBookingHours: Number(form.minBookingHours ?? 1),
-        hourlyRate: Number(form.hourlyRate ?? 0),
-        depositApplicable: !!form.depositApplicable,
+        seatingCapacity: capacity,
         depositAmount,
-        additionalHourRate: Number(form.additionalHourRate ?? 0),
-        glCode: form.glCode || undefined,
+        description: form.description?.trim() ?? '',
         images: form.images ?? [],
-        status: normalizedStatus,
+        status: newStatus,
       };
       setData((prev) => [...prev, newRec]);
       toast.success('Hall created');
     }
 
-    setModalOpen(false);
-    setEditing(null);
-    setViewing(null);
-    setForm({ depositApplicable: false, status: 'Active' });
+    closeModal();
   };
 
-  const handleDelete = () => {
-    if (!deleteTarget) return;
-    setData((prev) => prev.map((r) => r.id === deleteTarget.id ? { ...r, status: 'Inactive' } : r));
+  // ── deactivate via table action ────────────────────────────────
+  const handleDeactivate = () => {
+    if (!deactivateTarget) return;
+
+    if (hasFutureBookings(deactivateTarget.id)) {
+      toast.error(
+        'Cannot Deactivate',
+        'Hall cannot be deactivated because future bookings exist for this hall. ' +
+        'Please complete, cancel or reschedule the associated bookings before deactivating the hall.',
+      );
+      setDeactivateTarget(null);
+      return;
+    }
+
+    setData((prev) =>
+      prev.map((r) => (r.id === deactivateTarget.id ? { ...r, status: 'Inactive' } : r)),
+    );
     toast.success('Hall deactivated');
-    setDeleteTarget(null);
+    setDeactivateTarget(null);
   };
 
+  // ── table columns ──────────────────────────────────────────────
   const columns: Column<Hall>[] = [
-    { key: 'code', header: 'Hall Code', render: (r) => <span className="font-medium text-brown-800">{r.code}</span> },
-    { key: 'name', header: 'Hall Name', render: (r) => <span className="text-brown-800">{r.name}</span> },
-    { key: 'category', header: 'Hall Category', render: (r) => <span className="text-brown-700">{categories.find(c => c.id === r.categoryId)?.name ?? '—'}</span> },
-    { key: 'capacity', header: 'Capacity', align: 'center', render: (r) => r.seatingCapacity },
-    { key: 'gl', header: 'GL', render: (r) => r.glCode ? (glRecords.find(g => g.glCode === r.glCode)?.glCode ?? r.glCode) : '—' },
-    { key: 'status', header: 'Status', render: (r) => <StatusBadge status={r.status} /> },
-    { key: 'actions', header: 'Actions', align: 'center', render: (r) => (
-      <div className="flex justify-center gap-1">
-        <button type="button" onClick={() => openView(r)} className="rounded p-1.5 text-brown-500 hover:bg-cream-100" title="View"><Eye className="h-4 w-4"/></button>
-        <button type="button" onClick={() => openEdit(r)} className="rounded p-1.5 text-brown-500 hover:bg-cream-100 hover:text-maroon-600" title="Edit"><Edit className="h-4 w-4"/></button>
-        <button type="button" onClick={() => setDeleteTarget(r)} className="rounded p-1.5 text-brown-500 hover:bg-red-50 hover:text-red-600" title="Deactivate"><Trash2 className="h-4 w-4"/></button>
-      </div>
-    ) }
+    {
+      key: 'code',
+      header: 'Hall Code',
+      render: (r) => <span className="font-medium text-brown-800">{r.code}</span>,
+    },
+    {
+      key: 'name',
+      header: 'Hall Name',
+      render: (r) => <span className="text-brown-800">{r.name}</span>,
+    },
+    {
+      key: 'category',
+      header: 'Hall Category',
+      render: (r) => (
+        <span className="text-brown-700">
+          {categories.find((c) => c.id === r.categoryId)?.name ?? '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'capacity',
+      header: 'Seating Capacity',
+      align: 'center',
+      render: (r) => r.seatingCapacity ?? '—',
+    },
+    {
+      key: 'deposit',
+      header: 'Deposit (S$)',
+      align: 'right',
+      render: (r) =>
+        r.depositAmount !== undefined && r.depositAmount > 0
+          ? `S$${Number(r.depositAmount).toFixed(2)}`
+          : <span className="text-brown-300">—</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (r) => <StatusBadge status={r.status} />,
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      align: 'center',
+      render: (r) => (
+        <div className="flex justify-center gap-1">
+          <button
+            type="button"
+            onClick={() => openView(r)}
+            className="rounded p-1.5 text-brown-500 hover:bg-cream-100"
+            title="View"
+          >
+            <Eye className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => openEdit(r)}
+            className="rounded p-1.5 text-brown-500 hover:bg-cream-100 hover:text-maroon-600"
+            title="Edit"
+          >
+            <Edit className="h-4 w-4" />
+          </button>
+          {r.status === 'Active' && (
+            <button
+              type="button"
+              onClick={() => setDeactivateTarget(r)}
+              className="rounded p-1.5 text-brown-500 hover:bg-red-50 hover:text-red-600"
+              title="Deactivate"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      ),
+    },
   ];
 
   return (
     <div>
-      <PageHeader title="Hall Master" description="Manage halls and their rates" actions={<button type="button" className="btn-primary" onClick={openCreate}><Plus className="h-4 w-4"/>Add Hall</button>} />
+      <PageHeader
+        title="Hall Master"
+        description="Manage halls available for booking"
+        actions={
+          <button type="button" className="btn-primary" onClick={openCreate}>
+            <Plus className="h-4 w-4" /> Add Hall
+          </button>
+        }
+      />
 
       <div className="card p-4">
-        <SearchFilterBar search={search} onSearch={(v) => { setSearch(v); setPage(1); }} searchPlaceholder="Search hall code or name..." filters={[]} />
+        <SearchFilterBar
+          search={search}
+          onSearch={(v) => { setSearch(v); setPage(1); }}
+          searchPlaceholder="Search hall code or name..."
+          filters={[]}
+        />
       </div>
 
       <div className="card mt-4">
         <DataTable columns={columns} data={paged} />
-        <Pagination page={page} totalPages={totalPages} onPage={setPage} totalItems={filtered.length} pageSize={PAGE_SIZE} />
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onPage={setPage}
+          totalItems={filtered.length}
+          pageSize={PAGE_SIZE}
+        />
       </div>
 
+      {/* ── Add / Edit / View Modal ── */}
       <Modal
         open={modalOpen}
-        onClose={() => { setModalOpen(false); setViewing(null); }}
-        title={viewing ? 'View Hall' : (editing ? 'Edit Hall' : 'Add Hall')}
+        onClose={closeModal}
+        title={viewing ? 'View Hall' : editing ? 'Edit Hall' : 'Add Hall'}
         size="lg"
-        footer={viewing ? (
-          <button type="button" className="btn-outline" onClick={() => { setModalOpen(false); setViewing(null); }}>Close</button>
-        ) : (
-          <>
-            <button type="button" className="btn-outline" onClick={() => setModalOpen(false)}>Cancel</button>
-            <button type="button" className="btn-primary" onClick={handleSave}>Save</button>
-          </>
-        )}
+        footer={
+          viewing ? (
+            <button type="button" className="btn-outline" onClick={closeModal}>Close</button>
+          ) : (
+            <>
+              <button type="button" className="btn-outline" onClick={closeModal}>Cancel</button>
+              <button type="button" className="btn-primary" onClick={handleSave}>Save</button>
+            </>
+          )
+        }
       >
         <div className="grid gap-4 sm:grid-cols-2">
+
+          {/* 1 — Hall Code */}
           <FormField label="Hall Code" required>
             <TextInput
               value={form.code ?? ''}
@@ -200,134 +369,107 @@ export function HallMaster() {
             />
           </FormField>
 
+          {/* 2 — Hall Name */}
           <FormField label="Hall Name" required>
             <TextInput
               value={form.name ?? ''}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="e.g. Wedding Hall - Level 3"
+              placeholder="e.g. Wedding Hall"
               disabled={!!viewing}
             />
           </FormField>
 
-          <FormField label="Category" required>
-            <select
-              value={form.categoryId ?? ''}
-              onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
-              className="input"
-              disabled={!!viewing}
-            >
-              <option value="">Select category</option>
-              {categories.filter(c => c.status === 'Active' || c.id === form.categoryId).map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
+          {/* 3 — Hall Category */}
+          <FormField label="Hall Category" required>
+            {viewing ? (
+              <TextInput
+                value={categories.find((c) => c.id === form.categoryId)?.name ?? '—'}
+                readOnly
+              />
+            ) : (
+              <select
+                value={form.categoryId ?? ''}
+                onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
+                className="input"
+              >
+                <option value="">Select category</option>
+                {/* Active categories for new/edit; always include the saved one for existing record */}
+                {categories
+                  .filter(
+                    (c) =>
+                      c.status === 'Active' ||
+                      c.id === editing?.categoryId,
+                  )
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+              </select>
+            )}
           </FormField>
 
-          <FormField label="Level / Location">
-            <TextInput
-              value={form.level ?? ''}
-              onChange={(e) => setForm({ ...form, level: e.target.value })}
-              placeholder="e.g. Level 3"
-              disabled={!!viewing}
-            />
-          </FormField>
-
+          {/* 4 — Seating Capacity */}
           <FormField label="Seating Capacity" required>
             <TextInput
               type="number"
               min={1}
-              value={String(form.seatingCapacity ?? '')}
-              onChange={(e) => setForm({ ...form, seatingCapacity: Number(e.target.value) })}
+              step={1}
+              value={form.seatingCapacity !== undefined ? String(form.seatingCapacity) : ''}
+              onChange={(e) => {
+                const raw = e.target.value;
+                // Allow only non-negative integers while typing
+                const parsed = raw === '' ? undefined : Math.floor(Number(raw));
+                setForm({ ...form, seatingCapacity: parsed });
+              }}
+              placeholder="e.g. 300"
               disabled={!!viewing}
             />
           </FormField>
 
-          <FormField label="GL">
-            <div className={viewing ? 'pointer-events-none opacity-60' : undefined}>
-              <Dropdown
-                value={form.glCode ?? ''}
-                onChange={(value) => setForm({ ...form, glCode: value })}
-                options={activeGlRecords.map((g) => ({ label: `${g.glCode} - ${g.glName}`, value: g.glCode }))}
-                placeholder="Select GL"
-              />
-            </div>
-          </FormField>
-
-          <FormField label="Minimum Booking Hours">
-            <TextInput
-              type="number"
-              min={1}
-              value={String(form.minBookingHours ?? '')}
-              onChange={(e) => setForm({ ...form, minBookingHours: Number(e.target.value) })}
-              disabled={!!viewing}
-            />
-          </FormField>
-
-          <FormField label="Standard Hourly Rate (S$)">
+          {/* 5 — Deposit Amount */}
+          <FormField
+            label="Deposit Amount (S$)"
+            hint={viewing ? undefined : 'Enter 0 if no deposit is required.'}
+          >
             <TextInput
               type="number"
               min={0}
-              value={String(form.hourlyRate ?? '')}
-              onChange={(e) => setForm({ ...form, hourlyRate: Number(e.target.value) })}
-              disabled={!!viewing}
-            />
-          </FormField>
-
-          <FormField label="Additional Hour Rate (S$)">
-            <TextInput
-              type="number"
-              min={0}
-              value={String(form.additionalHourRate ?? '')}
-              onChange={(e) => setForm({ ...form, additionalHourRate: Number(e.target.value) })}
-              disabled={!!viewing}
-            />
-          </FormField>
-
-          <FormField label="Deposit Applicable">
-            <div className={viewing ? 'pointer-events-none opacity-60' : undefined}>
-              <Toggle
-                checked={!!form.depositApplicable}
-                onChange={(v) => setForm({
-                  ...form,
-                  depositApplicable: v,
-                  depositAmount: v ? (form.depositAmount || 0) : 0,
-                })}
-                trueLabel="Yes"
-                falseLabel="No"
-              />
-            </div>
-          </FormField>
-
-          <FormField label="Deposit Amount (S$)">
-            <TextInput
-              type="number"
-              min={0}
-              value={form.depositApplicable ? String(form.depositAmount ?? '') : '0'}
+              step="0.01"
+              value={form.depositAmount !== undefined ? String(form.depositAmount) : '0'}
               onChange={(e) => setForm({ ...form, depositAmount: Number(e.target.value) })}
-              disabled={!!viewing || !form.depositApplicable}
-              placeholder={form.depositApplicable ? 'e.g. 500' : 'Deposit Disabled'}
+              placeholder="0.00"
+              disabled={!!viewing}
             />
           </FormField>
 
+          {/* 6 — Description */}
           <FormField label="Description" className="sm:col-span-2">
             <TextArea
               value={form.description ?? ''}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               disabled={!!viewing}
-              placeholder="Hall description, facilities and special features"
+              placeholder="Hall description, facilities and special features (optional)"
             />
           </FormField>
 
+          {/* 7 — Hall Images */}
           <FormField label="Hall Images" className="sm:col-span-2">
             <div className="flex flex-wrap gap-2">
               {(form.images ?? []).map((img, idx) => (
-                <div key={idx} className="relative h-24 w-36 overflow-hidden rounded border border-brown-200">
-                  <img src={img} alt={`img-${idx}`} className="h-full w-full object-cover" />
+                <div
+                  key={idx}
+                  className="relative h-24 w-36 overflow-hidden rounded border border-brown-200"
+                >
+                  <img src={img} alt={`hall-img-${idx}`} className="h-full w-full object-cover" />
                   {!viewing && (
                     <button
                       type="button"
-                      onClick={() => setForm({ ...form, images: (form.images ?? []).filter((_, i) => i !== idx) })}
-                      className="absolute -right-2 -top-2 rounded-full bg-red-500 p-1 text-white hover:bg-red-600"
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          images: (form.images ?? []).filter((_, i) => i !== idx),
+                        })
+                      }
+                      className="absolute right-1 top-1 rounded-full bg-red-500 p-0.5 text-white hover:bg-red-600"
                     >
                       <Trash2 className="h-3 w-3" />
                     </button>
@@ -348,7 +490,8 @@ export function HallMaster() {
             </div>
           </FormField>
 
-          <FormField label="Status">
+          {/* 8 — Status (always last) */}
+          <FormField label="Status" className="sm:col-span-2">
             <div className="pt-1">
               {viewing ? (
                 <StatusBadge status={status} />
@@ -365,15 +508,17 @@ export function HallMaster() {
               )}
             </div>
           </FormField>
+
         </div>
       </Modal>
 
+      {/* ── Deactivate Confirm ── */}
       <ConfirmModal
-        open={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={handleDelete}
+        open={!!deactivateTarget}
+        onClose={() => setDeactivateTarget(null)}
+        onConfirm={handleDeactivate}
         title="Deactivate Hall"
-        message={`Are you sure you want to deactivate "${deleteTarget?.name ?? ''}"?`}
+        message={`Are you sure you want to deactivate "${deactivateTarget?.name ?? ''}"? Inactive halls will not be available for new bookings or packages.`}
         confirmLabel="Deactivate"
         cancelLabel="Cancel"
         variant="danger"
