@@ -46,14 +46,26 @@ export interface Hall {
   categoryId: string;
   level?: string;
   seatingCapacity?: number;
-  minBookingHours?: number;
+  /** Renamed from hourlyRate — individual booking rate per hour */
+  individualBookingRate?: number;
+  /** Legacy alias kept so existing HallBooking/Package code that reads hourlyRate still compiles */
   hourlyRate?: number;
+  /** Minimum booking duration in hours — enforced at booking time, not in master */
+  minBookingDuration?: number;
+  /** Legacy alias */
+  minBookingHours?: number;
   depositApplicable?: boolean;
   depositAmount?: number;
   additionalHourRate?: number;
   images?: string[];
+  /** Floor plan image URL */
+  floorPlan?: string;
   glCode?: string;
   description?: string;
+  /** ISO date-time string set when the record is first created */
+  createdAt?: string;
+  /** Name of the user who created this record */
+  createdBy?: string;
   status: 'Active' | 'Inactive';
 }
 
@@ -61,14 +73,28 @@ export interface HallPackage {
   id: string;
   name: string;
   purpose?: string;
+  /** @deprecated removed from form — kept for backward compat with old seed data */
   sessionDurationHours?: number;
   price?: number;
+  /** @deprecated removed from form — kept for backward compat with old seed data */
   advanceAmount?: number;
   depositAmount?: number;
+  /** @deprecated removed from form — kept for backward compat with old seed data */
   additionalHourRate?: number;
+  /** @deprecated removed from form — GL no longer shown in Package Master form */
   glCode?: string;
   description?: string;
+  /** IDs of AdditionalService records included in this package */
+  additionalServiceIds?: string[];
+  /** GST applicability: 'Applicable' | 'Exempt' | 'Not Applicable' */
+  gstApplicable?: string;
+  /** Terms and conditions text for this package */
+  termsConditions?: string;
   halls: string[]; // hall ids
+  /** ISO date-time string set when the record is first created */
+  createdAt?: string;
+  /** Name of the user who created this record */
+  createdBy?: string;
   status: 'Active' | 'Inactive';
 }
 
@@ -85,9 +111,16 @@ export interface AdditionalService {
   code: string;
   name: string;
   description?: string;
+  /** @deprecated Pricing type is no longer configured in Additional Service Master */
   pricingType?: 'Fixed' | 'Per Hour' | 'Per Person' | 'Per Unit';
+  /** @deprecated Rate is no longer configured in Additional Service Master */
   rate?: number;
+  /** @deprecated GL is no longer configured in Additional Service Master */
   glCode?: string;
+  /** ISO date-time string set when the record is first created */
+  createdAt?: string;
+  /** Name of the user who created this record */
+  createdBy?: string;
   status: 'Active' | 'Inactive';
 }
 
@@ -456,13 +489,31 @@ export const hallCategories: HallCategory[] = [
 ];
 
 export const halls: Hall[] = [
-  { id: 'h1', code: 'H-WED-03', name: 'Wedding Hall - Level 3', categoryId: 'hc1', level: 'Level 3', seatingCapacity: 300, minBookingHours: 3, hourlyRate: 200, depositApplicable: true, depositAmount: 500, additionalHourRate: 250, images: [], glCode: 'GL-2002', status: 'Active' },
-  { id: 'h2', code: 'H-FUN-02', name: 'Function Hall - Level 2', categoryId: 'hc2', level: 'Level 2', seatingCapacity: 150, minBookingHours: 2, hourlyRate: 120, depositApplicable: true, depositAmount: 300, additionalHourRate: 150, images: [], glCode: 'GL-2002', status: 'Active' },
-  { id: 'h3', code: 'H-DIN-01', name: 'Dining Hall - Level 1', categoryId: 'hc3', level: 'Level 1', seatingCapacity: 200, minBookingHours: 2, hourlyRate: 100, depositApplicable: false, depositAmount: 0, additionalHourRate: 120, images: [], glCode: 'GL-2002', status: 'Active' },
+  { id: 'h1', code: 'H-WED-03', name: 'Wedding Hall - Level 3', categoryId: 'hc1', level: 'Level 3', seatingCapacity: 300, minBookingHours: 3, minBookingDuration: 3, hourlyRate: 200, individualBookingRate: 200, depositApplicable: true, depositAmount: 500, additionalHourRate: 250, images: [], glCode: 'GL-2002', createdAt: '2026-01-10T09:00:00.000Z', createdBy: 'Suresh Krishnan', status: 'Active' },
+  { id: 'h2', code: 'H-FUN-02', name: 'Function Hall - Level 2', categoryId: 'hc2', level: 'Level 2', seatingCapacity: 150, minBookingHours: 2, minBookingDuration: 2, hourlyRate: 120, individualBookingRate: 120, depositApplicable: true, depositAmount: 300, additionalHourRate: 150, images: [], glCode: 'GL-2002', createdAt: '2026-01-10T09:15:00.000Z', createdBy: 'Suresh Krishnan', status: 'Active' },
+  { id: 'h3', code: 'H-DIN-01', name: 'Dining Hall - Level 1', categoryId: 'hc3', level: 'Level 1', seatingCapacity: 200, minBookingHours: 2, minBookingDuration: 2, hourlyRate: 100, individualBookingRate: 100, depositApplicable: false, depositAmount: 0, additionalHourRate: 120, images: [], glCode: 'GL-2002', createdAt: '2026-01-10T09:30:00.000Z', createdBy: 'Suresh Krishnan', status: 'Active' },
 ];
 
 export const hallPackages: HallPackage[] = [
-  { id: 'hp1', name: 'Wedding Package', purpose: 'hp-1', sessionDurationHours: 6, price: 3700, advanceAmount: 500, depositAmount: 500, additionalHourRate: 350, glCode: 'GL-2001', description: 'Wedding package including halls and basic inclusions', halls: ['h1', 'h3'], status: 'Active' },
+  {
+    id: 'hp1',
+    name: 'Wedding Package',
+    purpose: 'hp-1',
+    sessionDurationHours: 6,
+    price: 3700,
+    advanceAmount: 500,
+    depositAmount: 500,
+    additionalHourRate: 350,
+    glCode: 'GL-2001',
+    description: 'Wedding package including halls and basic inclusions',
+    additionalServiceIds: ['as1', 'as2'],
+    gstApplicable: 'Applicable',
+    termsConditions: 'Full payment required 7 days before the event. Cancellation policy applies.',
+    halls: ['h1', 'h3'],
+    createdAt: '2026-01-15T10:00:00.000Z',
+    createdBy: 'Suresh Krishnan',
+    status: 'Active',
+  },
 ];
 
 export interface HallPurpose {
@@ -485,9 +536,9 @@ export const holidays: Holiday[] = [
 ];
 
 export const additionalServices: AdditionalService[] = [
-  { id: 'as1', code: 'DEC', name: 'Decoration', pricingType: 'Fixed', rate: 200, glCode: 'GL-2001', status: 'Active' },
-  { id: 'as2', code: 'SOUND', name: 'Sound System', pricingType: 'Per Hour', rate: 150, glCode: 'GL-2001', status: 'Active' },
-  { id: 'as3', code: 'TENT', name: 'Tent Setup', pricingType: 'Per Unit', rate: 300, glCode: 'GL-2001', status: 'Active' },
+  { id: 'as1', code: 'DEC', name: 'Decoration', description: 'Hall decoration setup', pricingType: 'Fixed', rate: 200, glCode: 'GL-2001', createdAt: '2026-01-10T09:00:00.000Z', createdBy: 'Suresh Krishnan', status: 'Active' },
+  { id: 'as2', code: 'SOUND', name: 'Sound System', description: 'Professional sound and PA system', pricingType: 'Per Hour', rate: 150, glCode: 'GL-2001', createdAt: '2026-01-10T09:05:00.000Z', createdBy: 'Suresh Krishnan', status: 'Active' },
+  { id: 'as3', code: 'TENT', name: 'Tent Setup', description: 'External tent or canopy setup', pricingType: 'Per Unit', rate: 300, glCode: 'GL-2001', createdAt: '2026-01-10T09:10:00.000Z', createdBy: 'Suresh Krishnan', status: 'Active' },
 ];
 
 export const hallBookings: HallBooking[] = [];
