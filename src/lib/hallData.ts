@@ -1,4 +1,4 @@
-import type { HallBooking, HallPayment } from '@/lib/mockData';
+import type { HallBooking, HallPayment, HallException } from '@/lib/mockData';
 
 export type HallBookingRecord = HallBooking & {
   customerName: string;
@@ -128,6 +128,21 @@ export const hallBookings: HallBookingRecord[] = [
     createdAt: '2026-08-10T12:00:00.000Z',
   },
 ];
+
+const hallExceptionsSeed: HallException[] = [
+  {
+    id: 'hex-1',
+    hallId: 'h1',
+    hallName: 'Wedding Hall - Level 3',
+    exceptionDate: '2026-09-15',
+    startTime: '08:00',
+    endTime: '12:00',
+    reason: 'Hall maintenance',
+    status: 'Active',
+  },
+];
+
+export let hallExceptions: HallException[] = hallExceptionsSeed;
 
 export const hallPayments: HallPayment[] = [
   {

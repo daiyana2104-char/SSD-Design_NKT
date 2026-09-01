@@ -106,6 +106,17 @@ export interface Holiday {
   status: 'Active' | 'Inactive';
 }
 
+export interface HallException {
+  id: string;
+  hallId: string;
+  hallName?: string;
+  exceptionDate: string;
+  startTime: string;
+  endTime: string;
+  reason?: string;
+  status: 'Active' | 'Inactive';
+}
+
 export interface AdditionalService {
   id: string;
   code: string;

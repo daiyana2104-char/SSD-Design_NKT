@@ -32,12 +32,11 @@ import { HallCategoryMaster } from '@/pages/admin/hall/HallCategoryMaster';
 import { HallMaster } from '@/pages/admin/hall/HallMaster';
 import { HallBooking } from '@/pages/admin/hall/HallBooking';
 import { HallPayments } from '@/pages/admin/hall/HallPayments';
-import { HallAvailability } from '@/pages/admin/hall/HallAvailability';
+import { HallExceptionMaster } from '@/pages/admin/hall/HallExceptionMaster';
 import { HallReports } from '@/pages/admin/hall/HallReports';
 import { HallCancellation } from '@/pages/admin/hall/HallCancellation';
 import { HallPurposeMaster } from '@/pages/admin/hall/HallPurposeMaster';
 import { HallPackageMaster } from '@/pages/admin/hall/HallPackageMaster';
-import { HallHolidayMaster } from '@/pages/admin/hall/HallHolidayMaster';
 import { AdditionalServiceMaster } from '@/pages/admin/hall/AdditionalServiceMaster';
 import { HallAvailabilityCalendar } from '@/pages/admin/hall/HallAvailabilityCalendar';
 import { MealPackageManagement } from '@/pages/admin/MealPackages';
@@ -99,9 +98,8 @@ export default function App() {
           <Route path="halls" element={<HallMaster />} />
           <Route path="hall-bookings" element={<HallBooking />} />
           <Route path="hall-payments" element={<HallPayments />} />
-          <Route path="hall-availability" element={<HallAvailability />} />
+          <Route path="hall-exceptions" element={<HallExceptionMaster />} />
           <Route path="hall-availability-calendar" element={<HallAvailabilityCalendar />} />
-          <Route path="hall-holidays" element={<HallHolidayMaster />} />
           <Route path="hall-services" element={<AdditionalServiceMaster />} />
           <Route path="hall-cancellations" element={<HallCancellation />} />
           <Route path="hall-packages" element={<HallPackageMaster />} />

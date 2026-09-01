@@ -12,7 +12,6 @@ import {
   halls as initialHalls,
   hallPackages as packages,
   hallPurposes,
-  holidays,
   additionalServices,
   glRecords,
   mealPackagesMaster,
@@ -22,7 +21,8 @@ import {
   type HallAdditionalServiceLine,
   type Customer,
 } from '@/lib/mockData';
-import { hallBookings as initialBookings, type HallBookingRecord } from '@/lib/hallData';
+import { hallBookings as initialBookings, hallExceptions, type HallBookingRecord } from '@/lib/hallData';
+import { checkHallsAvailability } from '@/lib/hallAvailability';
 
 const PAGE_SIZE = 8;
 
@@ -377,21 +377,6 @@ export function HallBooking() {
     gstRate,
   ]);
 
-  // ── overlap check ──────────────────────────────────────────────
-  const overlaps = (hallId: string, date: string, start: string, end: string, excludeId?: string): boolean => {
-    const s = new Date(`${date}T${start}`).getTime();
-    const e = new Date(`${date}T${end}`).getTime();
-    return bookings.some(
-      (b) =>
-        b.id !== excludeId &&
-        b.hallIds.includes(hallId) &&
-        b.eventDate === date &&
-        b.bookingStatus !== 'Cancelled' &&
-        !(e <= new Date(`${b.eventDate}T${b.startTime}`).getTime() ||
-          s >= new Date(`${b.eventDate}T${b.endTime}`).getTime()),
-    );
-  };
-
   // ── open / close helpers ───────────────────────────────────────
   const defaultForm = (): Partial<HallBooking> => ({
     bookingRef: generateBookingRef(bookings),
@@ -532,29 +517,17 @@ export function HallBooking() {
         return toast.error('Validation Error', 'Only active halls can be booked.');
     }
 
-    // Holiday overlap check
-    const bookStart = new Date(`${form.eventDate}T${form.startTime}`);
-    const bookEnd = new Date(`${form.eventDate}T${form.endTime}`);
-    const holidayHit = holidays.find(
-      (hol) =>
-        hol.status === 'Active' &&
-        bookEnd > new Date(hol.start) &&
-        bookStart < new Date(hol.end),
+    // Availability check — bookings and active hall exceptions
+    const availability = checkHallsAvailability(
+      selectedHallIds,
+      form.eventDate!,
+      form.startTime!,
+      form.endTime!,
+      bookings,
+      hallExceptions,
+      editing?.id,
     );
-    if (holidayHit)
-      return toast.error(
-        'Blocked Period',
-        `This period is blocked by the holiday "${holidayHit.name}".`,
-      );
-
-    // Overlap with confirmed bookings
-    for (const hid of selectedHallIds) {
-      if (overlaps(hid, form.eventDate!, form.startTime!, form.endTime!, editing?.id))
-        return toast.error(
-          'Not Available',
-          `Hall "${initialHalls.find((h) => h.id === hid)?.name}" is already booked for this period.`,
-        );
-    }
+    if (!availability.available) return toast.error('Not Available', availability.message);
 
     // Meals validation
     if (form.mealsRequired) {
