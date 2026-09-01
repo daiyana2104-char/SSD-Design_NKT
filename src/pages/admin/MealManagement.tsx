@@ -11,6 +11,8 @@ import { useToast } from '@/components/ui/Toast';
 import { useAdminStore } from '@/lib/adminStore';
 import { customers, glRecords } from '@/lib/mockData';
 import { hallBookings } from '@/lib/hallData';
+import { loadMealBookings } from '@/lib/mealFoodUtils';
+import { MealBookingManagement } from './MealBookingManagement';
 
 type MealModule = 'category' | 'item' | 'booking' | 'availability' | 'reports';
 
@@ -72,26 +74,6 @@ interface StoredMealPackage {
   description: string;
   status: 'Active' | 'Inactive';
   itemIds: string[];
-}
-
-interface MealBooking {
-  id: string;
-  reference: string;
-  customerId: string;
-  eventDate: string;
-  categoryId: string;
-  mealType: MealType;
-  serviceTime: string;
-  packageId: string;
-  adultPax: number;
-  childPax: number;
-  totalPax: number;
-  packageAmount: number;
-  gst: number;
-  totalAmount: number;
-  amountPaid: number;
-  paymentStatus: PaymentStatus;
-  bookingStatus: BookingStatus;
 }
 
 interface MealAvailability {
@@ -748,216 +730,31 @@ function MealItemMasterScreen() {
   );
 }
 
-function MealBookingManagementScreen() {
-  const toast = useToast();
-  const [data, setData] = useState<MealBooking[]>(() => readStorage(mealBookingsKey, []));
-  const packages = loadMealPackages();
-  const categories = loadMealCategoriesForModule();
-  const activeCategories = categories.filter((category) => category.status === 'Active');
-  const activePackages = packages.filter((item) => item.status === 'Active');
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [viewing, setViewing] = useState<MealBooking | null>(null);
-  const [editing, setEditing] = useState<MealBooking | null>(null);
-  const [paymentBooking, setPaymentBooking] = useState<MealBooking | null>(null);
-  const [paymentAmount, setPaymentAmount] = useState('');
-  const [form, setForm] = useState<MealBooking>({
-    id: '', reference: '', customerId: '', eventDate: '', categoryId: '', mealType: 'Breakfast',
-    serviceTime: '', packageId: '', adultPax: 0, childPax: 0, totalPax: 0, packageAmount: 0,
-    gst: 0, totalAmount: 0, amountPaid: 0, paymentStatus: 'Pending', bookingStatus: 'Draft',
-  });
-
-  const persist = (next: MealBooking[]) => { setData(next); writeStorage(mealBookingsKey, next); };
-  const matchingPackages = activePackages.filter((item) => !form.categoryId || item.categoryId === form.categoryId);
-  const customer = customers.find((item) => item.id === form.customerId);
-
-  const calculate = (next: Partial<MealBooking>) => {
-    const adult = Number(next.adultPax ?? form.adultPax) || 0;
-    const child = Number(next.childPax ?? form.childPax) || 0;
-    const pkg = activePackages.find((item) => item.id === (next.packageId ?? form.packageId));
-    const gl = glRecords.find((record) => record.glCode === pkg?.glCode && record.status === 'Active');
-    const gstRate = gl?.gstRate ?? 0;
-    const totalPax = adult + child;
-    const packageAmount = pkg ? pkg.pricePerPax * totalPax : 0;
-    const gst = packageAmount * (gstRate / 100);
-    return { ...form, ...next, totalPax, packageAmount, gst, totalAmount: packageAmount + gst };
-  };
-
-  const openCreate = () => {
-    setEditing(null);
-    setViewing(null);
-    setForm({
-      id: '',
-      reference: `MB${new Date().getFullYear()}${String(data.length + 1).padStart(4, '0')}`,
-      customerId: '',
-      eventDate: '',
-      categoryId: activeCategories[0]?.id ?? '',
-      mealType: 'Breakfast',
-      serviceTime: '08:00',
-      packageId: '',
-      adultPax: 0,
-      childPax: 0,
-      totalPax: 0,
-      packageAmount: 0,
-      gst: 0,
-      totalAmount: 0,
-      amountPaid: 0,
-      paymentStatus: 'Pending',
-      bookingStatus: 'Draft',
-    });
-    setModalOpen(true);
-  };
-
-  const openView = (booking: MealBooking) => { setViewing(booking); setEditing(null); setForm(booking); setModalOpen(true); };
-  const openEdit = (booking: MealBooking) => { setViewing(null); setEditing(booking); setForm(booking); setModalOpen(true); };
-
-  const save = () => {
-    const next = calculate(form);
-    const pkg = activePackages.find((item) => item.id === next.packageId);
-    const totalPax = next.totalPax;
-    if (!next.reference.trim() || !next.customerId || !next.eventDate || !next.serviceTime || !next.categoryId || !next.packageId) {
-      return toast.error('Validation Error', 'Complete all booking details.');
-    }
-    if (totalPax <= 0) return toast.error('Validation Error', 'Total pax must be greater than zero.');
-    if (pkg && (totalPax < pkg.minimumPax || (pkg.maximumPax !== undefined && totalPax > pkg.maximumPax))) {
-      return toast.error('Validation Error', `Pax must be between ${pkg.minimumPax} and ${pkg.maximumPax ?? 'the package maximum'}.`);
-    }
-    if (next.bookingStatus === 'Confirmed') {
-      const availability = readStorage<MealAvailability[]>(mealAvailabilityKey, []).find((item) => item.date === next.eventDate && item.packageId === next.packageId);
-      const booked = data.filter((item) => item.eventDate === next.eventDate && item.packageId === next.packageId && item.bookingStatus === 'Confirmed' && item.id !== editing?.id).reduce((sum, item) => sum + item.totalPax, 0);
-      if (!availability) return toast.error('Availability Required', 'Configure availability for this package and date before confirming.');
-      if ((availability.status ?? '').toLowerCase().includes('closed') || booked + totalPax > availability.capacity) {
-        return toast.error('Capacity Exceeded', `Only ${Math.max(0, availability.capacity - booked)} pax are available for this meal package on the selected date.`);
-      }
-    }
-    const record = { ...next, id: editing?.id ?? `mb-${Math.random().toString(36).slice(2)}` };
-    persist(editing ? data.map((item) => item.id === editing.id ? record : item) : [...data, record]);
-    toast.success(editing ? 'Meal booking updated' : 'Meal booking created');
-    setModalOpen(false);
-  };
-
-  const changeStatus = (booking: MealBooking, bookingStatus: BookingStatus) => {
-    if (bookingStatus === 'Confirmed') {
-      setEditing(booking);
-      setViewing(null);
-      setForm({ ...booking, bookingStatus });
-      setModalOpen(true);
-      return;
-    }
-    persist(data.map((item) => item.id === booking.id ? { ...item, bookingStatus } : item));
-    toast.success(`Booking ${bookingStatus.toLowerCase()}`);
-  };
-
-  const addPayment = () => {
-    if (!paymentBooking) return;
-    const amount = Number(paymentAmount);
-    if (!Number.isFinite(amount) || amount <= 0 || amount > paymentBooking.totalAmount - paymentBooking.amountPaid) {
-      return toast.error('Validation Error', 'Enter an amount within the outstanding balance.');
-    }
-    const paid = paymentBooking.amountPaid + amount;
-    const status: PaymentStatus = paid >= paymentBooking.totalAmount ? 'Paid' : 'Partially Paid';
-    persist(data.map((item) => item.id === paymentBooking.id ? { ...item, amountPaid: paid, paymentStatus: status } : item));
-    toast.success('Payment recorded');
-    setPaymentBooking(null);
-    setPaymentAmount('');
-  };
-
-  const filtered = data.filter((item) => !search.trim() || item.reference.toLowerCase().includes(search.toLowerCase()) || customers.find((customerItem) => customerItem.id === item.customerId)?.name.toLowerCase().includes(search.toLowerCase()));
-  const pageSize = 8;
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const paged = filtered.slice((page - 1) * pageSize, page * pageSize);
-  const customerName = (id: string) => customers.find((item) => item.id === id)?.name ?? 'Unknown';
-  const packageName = (id: string) => packages.find((item) => item.id === id)?.name ?? 'Unknown';
-
-  const columns: Column<MealBooking>[] = [
-    { key: 'reference', header: 'Booking Ref', render: (item) => <span className="font-medium text-brown-800">{item.reference}</span> },
-    { key: 'customer', header: 'Customer', render: (item) => customerName(item.customerId) },
-    { key: 'eventDate', header: 'Event Date' },
-    { key: 'package', header: 'Meal Package', render: (item) => packageName(item.packageId) },
-    { key: 'mealType', header: 'Meal Type' },
-    { key: 'adultPax', header: 'Adult', align: 'right' },
-    { key: 'childPax', header: 'Child', align: 'right' },
-    { key: 'totalPax', header: 'Total Pax', align: 'right' },
-    { key: 'totalAmount', header: 'Total Amount', align: 'right', render: (item) => `S$${item.totalAmount.toFixed(2)}` },
-    { key: 'paymentStatus', header: 'Payment', render: (item) => <StatusBadge status={item.paymentStatus} /> },
-    { key: 'bookingStatus', header: 'Status', render: (item) => <StatusBadge status={item.bookingStatus} /> },
-    {
-      key: 'actions', header: 'Actions', align: 'center', render: (item) => (
-        <div className="flex justify-center gap-1">
-          <button type="button" onClick={() => openView(item)} className="rounded p-1.5 text-brown-500 hover:bg-cream-100" title="View"><Eye className="h-4 w-4" /></button>
-          <button type="button" onClick={() => openEdit(item)} className="rounded p-1.5 text-brown-500 hover:bg-cream-100" title="Edit"><Edit className="h-4 w-4" /></button>
-          <button type="button" onClick={() => setPaymentBooking(item)} className="rounded p-1.5 text-brown-500 hover:bg-cream-100" title="Payment"><CreditCard className="h-4 w-4" /></button>
-          {item.bookingStatus === 'Confirmed' && <button type="button" onClick={() => changeStatus(item, 'Cancelled')} className="rounded p-1.5 text-brown-500 hover:bg-cream-100" title="Cancel"><X className="h-4 w-4" /></button>}
-          {item.bookingStatus === 'Confirmed' && <button type="button" onClick={() => changeStatus(item, 'Completed')} className="rounded p-1.5 text-brown-500 hover:bg-cream-100" title="Complete"><Check className="h-4 w-4" /></button>}
-        </div>
-      ),
-    },
-  ];
-
-  return (
-    <div>
-      <PageHeader title="Meal Booking Management" description="Create and manage meal bookings" actions={<button type="button" className="btn-primary" onClick={openCreate}><Plus className="h-4 w-4" />Add Booking</button>} />
-      <div className="card p-4">
-        <SearchFilterBar search={search} onSearch={(value) => { setSearch(value); setPage(1); }} searchPlaceholder="Search booking reference or customer..." filters={[]} />
-      </div>
-      <div className="card mt-4">
-        <DataTable columns={columns} data={paged} />
-        <Pagination page={page} totalPages={totalPages} onPage={setPage} totalItems={filtered.length} pageSize={pageSize} />
-      </div>
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={viewing ? 'View Meal Booking' : editing ? 'Edit Meal Booking' : 'Add Meal Booking'} size="xl" footer={<><button type="button" className="btn-outline" onClick={() => setModalOpen(false)}>Close</button>{!viewing && <button type="button" className="btn-primary" onClick={save}>Save</button>}</>}>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField label="Booking Reference" required><TextInput disabled={!!viewing} value={form.reference} onChange={(e) => setForm({ ...form, reference: e.target.value })} /></FormField>
-          <FormField label="Event Date" required><TextInput disabled={!!viewing} type="date" value={form.eventDate} onChange={(e) => setForm({ ...form, eventDate: e.target.value })} /></FormField>
-          <FormField label="Customer" required><div className={viewing ? 'pointer-events-none opacity-60' : undefined}><Dropdown value={form.customerId} onChange={(value) => setForm({ ...form, customerId: value })} options={customers.filter((item) => item.status === 'Active').map((item) => ({ label: `${item.name} (${item.mobile})`, value: item.id }))} placeholder="Select customer" /></div></FormField>
-          {customer && <div className="rounded-lg bg-cream-50 p-3 text-sm text-brown-600"><p className="font-medium text-brown-800">{customer.name}</p><p>{customer.mobile}</p><p>{customer.email}</p></div>}
-          <FormField label="Meal Category" required><div className={viewing ? 'pointer-events-none opacity-60' : undefined}><Dropdown value={form.categoryId} onChange={(value) => setForm({ ...form, categoryId: value, packageId: '' })} options={activeCategories.map((item) => ({ label: item.name, value: item.id }))} placeholder="Select category" /></div></FormField>
-          <FormField label="Meal Type" required><div className={viewing ? 'pointer-events-none opacity-60' : undefined}><Dropdown value={form.mealType} onChange={(value) => setForm({ ...form, mealType: value as MealType, packageId: '' })} options={mealTypeOptions} /></div></FormField>
-          <FormField label="Meal Package" required><div className={viewing ? 'pointer-events-none opacity-60' : undefined}><Dropdown value={form.packageId} onChange={(value) => setForm(calculate({ packageId: value }))} options={(viewing ? packages.filter((item) => item.id === form.packageId) : matchingPackages).map((item) => ({ label: `${item.name} (S$${item.pricePerPax.toFixed(2)}/pax)`, value: item.id }))} placeholder="Select package" /></div></FormField>
-          <FormField label="Adult Pax" required><TextInput disabled={!!viewing} type="number" min="0" value={String(form.adultPax)} onChange={(e) => setForm(calculate({ adultPax: Number(e.target.value) }))} /></FormField>
-          <FormField label="Child Pax" required><TextInput disabled={!!viewing} type="number" min="0" value={String(form.childPax)} onChange={(e) => setForm(calculate({ childPax: Number(e.target.value) }))} /></FormField>
-          <div className="sm:col-span-2 rounded-lg bg-cream-50 p-4 text-sm text-brown-700">
-            <div className="flex justify-between"><span>Total Pax</span><strong>{form.totalPax}</strong></div>
-            <div className="flex justify-between"><span>Package Amount</span><strong>S${form.packageAmount.toFixed(2)}</strong></div>
-            <div className="flex justify-between"><span>GST</span><strong>S${form.gst.toFixed(2)}</strong></div>
-            <div className="mt-2 flex justify-between border-t border-brown-100 pt-2 text-base text-brown-900"><span>Grand Total</span><strong>S${form.totalAmount.toFixed(2)}</strong></div>
-          </div>
-          <FormField label="Booking Status"><div className={viewing ? 'pointer-events-none opacity-60' : undefined}><Dropdown value={form.bookingStatus} onChange={(value) => setForm({ ...form, bookingStatus: value as BookingStatus })} options={bookingStatusOptions} /></div></FormField>
-          <FormField label="Payment Status"><StatusBadge status={form.paymentStatus} /></FormField>
-        </div>
-      </Modal>
-      <Modal open={!!paymentBooking} onClose={() => setPaymentBooking(null)} title="Add Meal Payment" size="sm" footer={<><button type="button" className="btn-outline" onClick={() => setPaymentBooking(null)}>Cancel</button><button type="button" className="btn-primary" onClick={addPayment}>Save Payment</button></>}>
-        <FormField label="Outstanding Balance"><p className="text-sm text-brown-700">S${((paymentBooking?.totalAmount ?? 0) - (paymentBooking?.amountPaid ?? 0)).toFixed(2)}</p></FormField>
-        <FormField label="Payment Amount" required><TextInput type="number" min="0" step="0.01" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} /></FormField>
-      </Modal>
-    </div>
-  );
-}
-
 function MealAvailabilityManagementScreen() {
   const toast = useToast();
   const [data, setData] = useState<MealAvailability[]>(() => readStorage(mealAvailabilityKey, []));
   const packages = loadMealPackages();
   const categories = loadMealCategoriesForModule();
-  const bookings = readStorage<MealBooking[]>(mealBookingsKey, []);
+  const bookings = loadMealBookings();
   const [dateFilter, setDateFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
   const [packageFilter, setPackageFilter] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<MealAvailability>({ id: '', date: '', packageId: '', capacity: 0 });
 
   const persist = (next: MealAvailability[]) => { setData(next); writeStorage(mealAvailabilityKey, next); };
   const getPackage = (id: string) => packages.find((item) => item.id === id);
-  const bookedPax = (record: MealAvailability) => bookings.filter((item) => item.eventDate === record.date && item.packageId === record.packageId && item.bookingStatus === 'Confirmed').reduce((sum, item) => sum + item.totalPax, 0);
+  const bookedPax = (record: MealAvailability) =>
+    bookings
+      .filter((item) => item.eventDate === record.date && item.packageId === record.packageId && item.bookingStatus === 'Confirmed')
+      .reduce((sum, item) => sum + (item.paxCount ?? 0), 0);
   const statusFor = (record: MealAvailability) => {
     const remaining = record.capacity - bookedPax(record);
     return record.status === 'Closed/Blocked' ? 'Closed/Blocked' : remaining <= 0 ? 'Fully Booked' : remaining < record.capacity ? 'Partially Available' : 'Available';
   };
   const rows = data.filter((record) => {
     const pkg = getPackage(record.packageId);
-    const category = categories.find((item) => item.id === pkg?.categoryId);
-    return (!dateFilter || record.date === dateFilter) && (!categoryFilter || pkg?.categoryId === categoryFilter) && (!typeFilter || category?.name === typeFilter) && (!packageFilter || record.packageId === packageFilter);
+    return (!dateFilter || record.date === dateFilter) && (!categoryFilter || pkg?.categoryId === categoryFilter) && (!packageFilter || record.packageId === packageFilter);
   });
 
   const save = () => {
@@ -976,7 +773,6 @@ function MealAvailabilityManagementScreen() {
   const columns: Column<MealAvailability>[] = [
     { key: 'date', header: 'Date' },
     { key: 'package', header: 'Meal Package', render: (item) => getPackage(item.packageId)?.name ?? 'Unknown' },
-    { key: 'mealType', header: 'Meal Type', render: (item) => categories.find((category) => category.id === getPackage(item.packageId)?.categoryId)?.name ?? '-' },
     { key: 'capacity', header: 'Capacity', align: 'right' },
     { key: 'booked', header: 'Booked Pax', align: 'right', render: (item) => bookedPax(item) },
     { key: 'remaining', header: 'Remaining Pax', align: 'right', render: (item) => Math.max(0, item.capacity - bookedPax(item)) },
@@ -988,15 +784,11 @@ function MealAvailabilityManagementScreen() {
     <div>
       <PageHeader title="Meal Availability Management" description="Manage date-wise meal package capacity" actions={<button type="button" className="btn-primary" onClick={() => { setForm({ id: '', date: '', packageId: '', capacity: 0 }); setModalOpen(true); }}><Plus className="h-4 w-4" />Add Availability</button>} />
       <div className="card p-4">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <TextInput type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} />
           <select className="input" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
             <option value="">All Categories</option>
             {categories.filter((item) => item.status === 'Active').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-          </select>
-          <select className="input" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-            <option value="">All Meal Types</option>
-            {mealTypeOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
           </select>
           <select className="input" value={packageFilter} onChange={(e) => setPackageFilter(e.target.value)}>
             <option value="">All Packages</option>
@@ -1060,7 +852,7 @@ export function MealManagementPage({ module }: { module: MealModule }) {
 
 export function MealCategoryMaster() { return <MealCategoryMasterScreen />; }
 export function MealItemMaster() { return <MealItemMasterScreen />; }
-export function MealBookingManagement() { return <MealBookingManagementScreen />; }
+export { MealBookingManagement };
 export function MealAvailabilityManagement() { return <MealAvailabilityManagementScreen />; }
 export function MealReports() { return <MealManagementPage module="reports" />; }
 

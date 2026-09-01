@@ -94,13 +94,12 @@ function computeAdditionalServiceAmount(lines: HallAdditionalServiceLine[]): num
 
 function computeMealAmount(
   mealPackageId: string | undefined,
-  adultPax: number,
-  childPax: number,
+  paxCount: number,
 ): number {
   if (!mealPackageId) return 0;
   const mp = mealPackagesMaster.find((m) => m.id === mealPackageId);
   if (!mp) return 0;
-  return mp.pricePerPax * (adultPax + childPax);
+  return mp.pricePerPax * paxCount;
 }
 
 function computeTotals(
@@ -382,7 +381,7 @@ export function HallBooking() {
     );
     const additionalServiceAmount = computeAdditionalServiceAmount(additionalServiceLines);
     const mealAmount = form.mealsRequired
-      ? computeMealAmount(form.mealPackageId, form.adultPax ?? 0, form.childPax ?? 0)
+      ? computeMealAmount(form.mealPackageId, form.adultPax ?? 0)
       : 0;
     const { gstAmount, grandTotal } = computeTotals(
       hallAmount,
@@ -400,7 +399,6 @@ export function HallBooking() {
     form.mealsRequired,
     form.mealPackageId,
     form.adultPax,
-    form.childPax,
     additionalServiceLines,
     gstRate,
   ]);
@@ -414,9 +412,7 @@ export function HallBooking() {
     guests: undefined,
     mealsRequired: false,
     mealPackageId: activeMealPackages[0]?.id ?? '',
-    mealType: 'Lunch',
     adultPax: 0,
-    childPax: 0,
     glCode: activeGLs.find((g) => g.glCode === 'GL-2002')?.glCode ?? activeGLs[0]?.glCode ?? '',
     paymentMode: activePaymentModes[0]?.name ?? '',
     advanceAmount: 0,
@@ -595,21 +591,15 @@ export function HallBooking() {
     // Meals validation
     if (form.mealsRequired) {
       if (!form.mealPackageId)
-        return toast.error('Validation Error', 'Meal Package is required when Meals Required is Yes.');
-      if (!form.mealType)
-        return toast.error('Validation Error', 'Meal Type is required when Meals Required is Yes.');
-      if (!Number.isFinite(Number(form.adultPax)) || Number(form.adultPax) < 0)
-        return toast.error('Validation Error', 'Adult Pax must be a non-negative number.');
-      if (!Number.isFinite(Number(form.childPax)) || Number(form.childPax) < 0)
-        return toast.error('Validation Error', 'Child Pax must be a non-negative number.');
-      if ((form.adultPax ?? 0) + (form.childPax ?? 0) === 0)
-        return toast.error('Validation Error', 'At least one Adult Pax or Child Pax is required.');
+        return toast.error('Validation Error', 'Food Package is required when Food Required is Yes.');
+      const paxCount = Number(form.adultPax ?? 0);
+      if (!Number.isInteger(paxCount) || paxCount <= 0)
+        return toast.error('Validation Error', 'Pax Count must be a positive whole number.');
       const mealPkg = mealPackagesMaster.find((m) => m.id === form.mealPackageId);
-      const totalPax = (form.adultPax ?? 0) + (form.childPax ?? 0);
-      if (mealPkg && totalPax < mealPkg.minimumPax) {
+      if (mealPkg && paxCount < mealPkg.minimumPax) {
         return toast.error(
           'Validation Error',
-          `Pax count must be at least ${mealPkg.minimumPax} for the selected meal package.`,
+          `Minimum ${mealPkg.minimumPax} Pax is required for the selected Food Package.`,
         );
       }
     }
@@ -655,9 +645,7 @@ export function HallBooking() {
       guests: Number(form.guests),
       mealsRequired: !!form.mealsRequired,
       mealPackageId: form.mealsRequired ? form.mealPackageId : undefined,
-      mealType: form.mealsRequired ? form.mealType : undefined,
       adultPax: form.mealsRequired ? Number(form.adultPax ?? 0) : undefined,
-      childPax: form.mealsRequired ? Number(form.childPax ?? 0) : undefined,
       additionalServices: additionalServiceLines,
       glCode: form.glCode,
       hallAmount: billing.hallAmount,
@@ -1122,11 +1110,11 @@ export function HallBooking() {
             )}
           </section>
 
-          {/* ── Section: Meals ── */}
+          {/* ── Section: Food Details ── */}
           <section>
-            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-brown-500">Meals</h3>
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-brown-500">Food Details</h3>
             <div className="grid gap-4 sm:grid-cols-2">
-              <FormField label="Meals Required">
+              <FormField label="Food Required?">
                 <div className={isReadOnly ? 'pointer-events-none opacity-60' : undefined}>
                   <Toggle
                     checked={!!form.mealsRequired}
@@ -1139,7 +1127,7 @@ export function HallBooking() {
 
               {form.mealsRequired && (
                 <>
-                  <FormField label="Meal Package" required>
+                  <FormField label="Food Package" required>
                     {isReadOnly ? (
                       <TextInput value={mealPackagesMaster.find((m) => m.id === form.mealPackageId)?.name ?? '—'} readOnly />
                     ) : (
@@ -1148,7 +1136,7 @@ export function HallBooking() {
                         onChange={(e) => setForm({ ...form, mealPackageId: e.target.value })}
                         className="input"
                       >
-                        <option value="">Select meal package</option>
+                        <option value="">Select food package</option>
                         {activeMealPackages.map((m) => (
                           <option key={m.id} value={m.id}>
                             {m.name} — S${m.pricePerPax}/pax (min {m.minimumPax})
@@ -1158,39 +1146,12 @@ export function HallBooking() {
                     )}
                   </FormField>
 
-                  <FormField label="Meal Type" required>
-                    {isReadOnly ? (
-                      <TextInput value={form.mealType ?? '—'} readOnly />
-                    ) : (
-                      <select
-                        value={form.mealType ?? ''}
-                        onChange={(e) => setForm({ ...form, mealType: e.target.value })}
-                        className="input"
-                      >
-                        <option value="">Select meal type</option>
-                        {['Breakfast', 'Lunch', 'Dinner', 'Snacks', 'Other'].map((t) => (
-                          <option key={t} value={t}>{t}</option>
-                        ))}
-                      </select>
-                    )}
-                  </FormField>
-
-                  <FormField label="Adult Pax" required>
+                  <FormField label="Pax Count" required>
                     <TextInput
                       type="number"
-                      min={0}
+                      min={1}
                       value={form.adultPax !== undefined ? String(form.adultPax) : ''}
                       onChange={(e) => setForm({ ...form, adultPax: Number(e.target.value) })}
-                      disabled={isReadOnly}
-                    />
-                  </FormField>
-
-                  <FormField label="Child Pax" required>
-                    <TextInput
-                      type="number"
-                      min={0}
-                      value={form.childPax !== undefined ? String(form.childPax) : ''}
-                      onChange={(e) => setForm({ ...form, childPax: Number(e.target.value) })}
                       disabled={isReadOnly}
                     />
                   </FormField>
