@@ -38,7 +38,6 @@ import { HallCancellation } from '@/pages/admin/hall/HallCancellation';
 import { HallPurposeMaster } from '@/pages/admin/hall/HallPurposeMaster';
 import { HallPackageMaster } from '@/pages/admin/hall/HallPackageMaster';
 import { AdditionalServiceMaster } from '@/pages/admin/hall/AdditionalServiceMaster';
-import { HallAvailabilityCalendar } from '@/pages/admin/hall/HallAvailabilityCalendar';
 import { MealPackageManagement } from '@/pages/admin/MealPackages';
 import { MealCategoryMaster, MealItemMaster, MealBookingManagement, MealAvailabilityManagement, MealReports } from '@/pages/admin/MealManagement';
 import { PosProvider } from '@/lib/posStore';
@@ -99,7 +98,6 @@ export default function App() {
           <Route path="hall-bookings" element={<HallBooking />} />
           <Route path="hall-payments" element={<HallPayments />} />
           <Route path="hall-exceptions" element={<HallExceptionMaster />} />
-          <Route path="hall-availability-calendar" element={<HallAvailabilityCalendar />} />
           <Route path="hall-services" element={<AdditionalServiceMaster />} />
           <Route path="hall-cancellations" element={<HallCancellation />} />
           <Route path="hall-packages" element={<HallPackageMaster />} />

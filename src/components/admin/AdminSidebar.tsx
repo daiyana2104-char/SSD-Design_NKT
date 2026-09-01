@@ -46,7 +46,6 @@ const navGroups: NavGroup[] = [
     { label: 'Hall Package Master', to: '/admin/hall-packages', icon: Package, perm: 'halls' },
     { label: 'Additional Service Master', to: '/admin/hall-services', icon: Megaphone, perm: 'halls' },
     { label: 'Hall Exception', to: '/admin/hall-exceptions', icon: Calendar, perm: 'halls' },
-    { label: 'Availability Calendar', to: '/admin/hall-availability-calendar', icon: Calendar, perm: 'halls' },
     { label: 'Hall Booking', to: '/admin/hall-bookings', icon: ShoppingCart, perm: 'halls' },
     { label: 'Hall Payments', to: '/admin/hall-payments', icon: Wallet, perm: 'halls' },
     { label: 'Cancellation / Refund', to: '/admin/hall-cancellations', icon: Undo2, perm: 'halls' },

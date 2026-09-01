@@ -28,7 +28,7 @@ export function bookingOverlaps(
         b.id !== excludeBookingId &&
         b.hallIds.includes(hallId) &&
         b.eventDate === date &&
-        b.bookingStatus !== 'Cancelled' &&
+        b.bookingStatus === 'Confirmed' &&
         timesOverlap(startTime, endTime, b.startTime, b.endTime),
     ) ?? null
   );
@@ -62,7 +62,7 @@ export function checkHallsAvailability(
   bookings: HallBookingRecord[],
   exceptions: HallException[],
   excludeBookingId?: string,
-): { available: boolean; message: string } {
+): { available: boolean; message: string; detail?: string } {
   if (!date || !startTime || !endTime || startTime >= endTime || !hallIds.length) {
     return { available: false, message: 'Date, Start Time and End Time are required.' };
   }
@@ -77,21 +77,27 @@ export function checkHallsAvailability(
     const exceptionHit = exceptionOverlaps(exceptions, hid, date, startTime, endTime);
     if (exceptionHit) {
       const reason = exceptionHit.reason?.trim();
+      const detail = reason
+        ? `Hall "${hall.name}" is blocked for this period (${reason}).`
+        : `Hall "${hall.name}" is blocked for this period.`;
       return {
         available: false,
-        message: reason
-          ? `Hall "${hall.name}" is blocked for this period (${reason}).`
-          : `Hall "${hall.name}" is blocked for this period.`,
+        message:
+          'This Hall is no longer available for the selected date and time. Please select a different Hall or time.',
+        detail,
       };
     }
 
     const bookingHit = bookingOverlaps(bookings, hid, date, startTime, endTime, excludeBookingId);
     if (bookingHit) {
+      const detail =
+        `Hall "${hall.name}" is already booked from ${fmtTime(bookingHit.startTime)} to ${fmtTime(bookingHit.endTime)} ` +
+        `(Ref: ${bookingHit.bookingRef}).`;
       return {
         available: false,
         message:
-          `Hall "${hall.name}" is already booked from ${fmtTime(bookingHit.startTime)} to ${fmtTime(bookingHit.endTime)} ` +
-          `(Ref: ${bookingHit.bookingRef}).`,
+          'This Hall is no longer available for the selected date and time. Please select a different Hall or time.',
+        detail,
       };
     }
   }

@@ -16,13 +16,13 @@ import {
   glRecords,
   mealPackagesMaster,
   paymentModes,
-  users,
   type HallBooking,
   type HallAdditionalServiceLine,
   type Customer,
 } from '@/lib/mockData';
 import { hallBookings as initialBookings, hallExceptions, type HallBookingRecord } from '@/lib/hallData';
 import { checkHallsAvailability } from '@/lib/hallAvailability';
+import { HallBookingCalendar } from '@/pages/admin/hall/HallBookingCalendar';
 
 const PAGE_SIZE = 8;
 
@@ -48,10 +48,27 @@ function generateBookingRef(existing: HallBookingRecord[]): string {
   return `${prefix}${String(next).padStart(3, '0')}`;
 }
 
+function todayLocalDate(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function calcDurationHours(date: string, start: string, end: string): number {
   const s = new Date(`${date}T${start}`).getTime();
   const e = new Date(`${date}T${end}`).getTime();
-  return Math.max(1, Math.ceil((e - s) / 3_600_000));
+  return Math.max(0, (e - s) / 3_600_000);
+}
+
+function calcBillableHours(date: string, start: string, end: string): number {
+  return Math.max(1, Math.ceil(calcDurationHours(date, start, end)));
+}
+
+function hallRate(h: { individualBookingRate?: number; hourlyRate?: number } | undefined): number {
+  return h?.individualBookingRate ?? h?.hourlyRate ?? 0;
+}
+
+function minBookingHours(h: { minBookingDuration?: number; minBookingHours?: number } | undefined): number {
+  return h?.minBookingDuration ?? h?.minBookingHours ?? 1;
 }
 
 function computeHallAmount(
@@ -64,10 +81,10 @@ function computeHallAmount(
   if (packageId) {
     return packages.find((p) => p.id === packageId)?.price ?? 0;
   }
-  const hours = calcDurationHours(date, start, end);
+  const hours = calcBillableHours(date, start, end);
   return hallIds.reduce((sum, id) => {
     const h = initialHalls.find((x) => x.id === id);
-    return sum + (h?.hourlyRate ?? 0) * hours;
+    return sum + hallRate(h) * hours;
   }, 0);
 }
 
@@ -312,7 +329,6 @@ export function HallBooking() {
   const activeGLs = glRecords.filter((g) => g.status === 'Active');
   const activeMealPackages = mealPackagesMaster.filter((m) => m.status === 'Active');
   const activePaymentModes = paymentModes.filter((m) => m.status === 'Active');
-  const activeUsers = users.filter((u) => u.status === 'Active');
 
   // ── customer search dropdown ───────────────────────────────────
   const filteredCustomers = useMemo(() => {
@@ -333,6 +349,18 @@ export function HallBooking() {
     if (!form.hallIds || form.hallIds.length !== 1) return null;
     return initialHalls.find((h) => h.id === form.hallIds![0]) ?? null;
   }, [form.hallIds]);
+
+  const selectedPackage = useMemo(
+    () => (form.packageId ? packages.find((p) => p.id === form.packageId) ?? null : null),
+    [form.packageId],
+  );
+
+  const packageHalls = useMemo(() => {
+    if (!selectedPackage) return [];
+    return selectedPackage.halls
+      .map((id) => initialHalls.find((h) => h.id === id))
+      .filter(Boolean) as typeof initialHalls;
+  }, [selectedPackage]);
 
   const selectedGL = useMemo(
     () => activeGLs.find((g) => g.glCode === form.glCode),
@@ -437,11 +465,15 @@ export function HallBooking() {
 
   // ── package auto-fill ─────────────────────────────────────────
   const handlePackageChange = (pkgId: string) => {
+    if (!pkgId) {
+      setForm((prev) => ({ ...prev, packageId: undefined, hallIds: [] }));
+      return;
+    }
     const pkg = packages.find((p) => p.id === pkgId);
     setForm((prev) => ({
       ...prev,
       packageId: pkgId,
-      hallIds: pkg ? pkg.halls : prev.hallIds ?? [],
+      hallIds: pkg ? [...pkg.halls] : [],
       purpose: pkg?.purpose ?? prev.purpose,
       glCode: pkg?.glCode ?? prev.glCode,
     }));
@@ -489,17 +521,29 @@ export function HallBooking() {
     // Required fields
     if (!form.customerId) return toast.error('Validation Error', 'Customer is required.');
     if (!form.eventDate) return toast.error('Validation Error', 'Event Date is required.');
+    if (!editing && form.eventDate < todayLocalDate())
+      return toast.error('Validation Error', 'Past dates are not allowed for new bookings.');
     if (!form.startTime) return toast.error('Validation Error', 'Start Time is required.');
     if (!form.endTime) return toast.error('Validation Error', 'End Time is required.');
     if (form.startTime >= form.endTime)
-      return toast.error('Validation Error', 'Start Time must be before End Time.');
+      return toast.error('Validation Error', 'End Time must be later than Start Time.');
 
+    const hasPackage = !!form.packageId;
     const selectedHallIds = form.hallIds ?? [];
-    if (selectedHallIds.length === 0)
-      return toast.error('Validation Error', 'Select at least one hall or a package.');
+
+    if (hasPackage) {
+      const pkg = packages.find((p) => p.id === form.packageId);
+      if (!pkg || pkg.status !== 'Active')
+        return toast.error('Validation Error', 'Select an active hall package.');
+      if (!selectedHallIds.length)
+        return toast.error('Validation Error', 'The selected package has no halls configured.');
+    } else if (selectedHallIds.length !== 1) {
+      return toast.error('Validation Error', 'Select an individual hall or a hall package.');
+    }
+
     if (!form.purpose) return toast.error('Validation Error', 'Hall Purpose is required.');
     if (!Number.isFinite(Number(form.guests)) || Number(form.guests) <= 0)
-      return toast.error('Validation Error', 'Number of Guests is required.');
+      return toast.error('Validation Error', 'Number of Guests must be a positive number.');
 
     // Hall capacity validation
     for (const hid of selectedHallIds) {
@@ -507,7 +551,7 @@ export function HallBooking() {
       if (h && Number(form.guests) > (h.seatingCapacity ?? 0))
         return toast.error(
           'Capacity Exceeded',
-          `Guests (${form.guests}) exceeds capacity of "${h.name}" (${h.seatingCapacity}).`,
+          `Number of guests (${form.guests}) exceeds capacity of "${h.name}" (${h.seatingCapacity}).`,
         );
     }
 
@@ -517,17 +561,36 @@ export function HallBooking() {
         return toast.error('Validation Error', 'Only active halls can be booked.');
     }
 
-    // Availability check — bookings and active hall exceptions
-    const availability = checkHallsAvailability(
-      selectedHallIds,
-      form.eventDate!,
-      form.startTime!,
-      form.endTime!,
-      bookings,
-      hallExceptions,
-      editing?.id,
-    );
-    if (!availability.available) return toast.error('Not Available', availability.message);
+    // Minimum booking duration — individual hall only
+    if (!hasPackage && form.eventDate && form.startTime && form.endTime) {
+      const hall = initialHalls.find((h) => h.id === selectedHallIds[0]);
+      const duration = calcDurationHours(form.eventDate, form.startTime, form.endTime);
+      const minHours = minBookingHours(hall);
+      if (duration < minHours) {
+        return toast.error(
+          'Minimum Duration',
+          `"${hall?.name ?? 'Hall'}" requires a minimum booking duration of ${minHours} hour${minHours !== 1 ? 's' : ''}.`,
+        );
+      }
+    }
+
+    const bookingStatus = (form.bookingStatus as HallBooking['bookingStatus']) ?? 'Draft';
+
+    // Availability check — confirmed bookings and active hall exceptions
+    if (bookingStatus === 'Confirmed') {
+      const availability = checkHallsAvailability(
+        selectedHallIds,
+        form.eventDate!,
+        form.startTime!,
+        form.endTime!,
+        bookings,
+        hallExceptions,
+        editing?.id,
+      );
+      if (!availability.available) {
+        return toast.error(availability.message, availability.detail);
+      }
+    }
 
     // Meals validation
     if (form.mealsRequired) {
@@ -599,7 +662,7 @@ export function HallBooking() {
       paymentMode: form.paymentMode,
       status: advAmt >= billing.grandTotal ? 'Paid' : advAmt > 0 ? 'Partially Paid' : 'Booked',
       paymentStatus,
-      bookingStatus: (form.bookingStatus as HallBooking['bookingStatus']) ?? 'Draft',
+      bookingStatus,
       totalAmount: billing.grandTotal,
       paidAmount: advAmt,
       depositAmount: form.depositAmount ?? 0,
@@ -743,6 +806,8 @@ export function HallBooking() {
         />
       </div>
 
+      <HallBookingCalendar bookings={bookings} exceptions={hallExceptions} />
+
       <div className="card mt-4">
         <DataTable columns={columns} data={paged} />
         <Pagination
@@ -862,6 +927,7 @@ export function HallBooking() {
                 <input
                   type="date"
                   value={form.eventDate ?? ''}
+                  min={!editing ? todayLocalDate() : undefined}
                   onChange={(e) => setForm({ ...form, eventDate: e.target.value })}
                   className="input"
                   disabled={isReadOnly}
@@ -895,46 +961,67 @@ export function HallBooking() {
             <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-brown-500">Hall Details</h3>
             <div className="grid gap-4 sm:grid-cols-2">
 
-              <FormField label="Hall Package">
+              <FormField label="Hall Package" hint="Select a package OR an individual hall below">
                 {isReadOnly ? (
-                  <TextInput value={packages.find((p) => p.id === form.packageId)?.name ?? '—'} readOnly />
+                  <TextInput value={selectedPackage?.name ?? '—'} readOnly />
                 ) : (
                   <select
                     value={form.packageId ?? ''}
                     onChange={(e) => handlePackageChange(e.target.value)}
                     className="input"
                   >
-                    <option value="">Select package (optional)</option>
+                    <option value="">Individual Hall (no package)</option>
                     {activePackages.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name} — S${(p.price ?? 0).toFixed(2)}</option>
+                      <option key={p.id} value={p.id}>
+                        {p.name} — S${(p.price ?? 0).toFixed(2)}
+                      </option>
                     ))}
                   </select>
                 )}
               </FormField>
 
-              <FormField label="Hall" required>
-                {isReadOnly ? (
-                  <TextInput value={form.hallIds?.map((id) => initialHalls.find((h) => h.id === id)?.name).join(', ') ?? '—'} readOnly />
-                ) : (
-                  <select
-                    value={form.hallIds?.[0] ?? ''}
-                    onChange={(e) => handleHallChange(e.target.value)}
-                    className="input"
-                  >
-                    <option value="">Select hall</option>
-                    {activeHalls.map((h) => (
-                      <option key={h.id} value={h.id}>
-                        {h.name} (Cap: {h.seatingCapacity})
-                      </option>
-                    ))}
-                  </select>
-                )}
-                {selectedHall && (
-                  <p className="mt-1 text-xs text-brown-400">
-                    Capacity: {selectedHall.seatingCapacity} · Rate: S${selectedHall.hourlyRate}/hr
-                  </p>
-                )}
-              </FormField>
+              {form.packageId ? (
+                <FormField label="Included Halls" hint="Auto-selected from package">
+                  <TextInput
+                    value={packageHalls.map((h) => h.name).join(', ') || '—'}
+                    readOnly
+                    className="bg-cream-50"
+                  />
+                  {selectedPackage && (
+                    <p className="mt-1 text-xs text-brown-400">
+                      Package price: S${(selectedPackage.price ?? 0).toFixed(2)} (fixed)
+                    </p>
+                  )}
+                </FormField>
+              ) : (
+                <FormField label="Hall" required>
+                  {isReadOnly ? (
+                    <TextInput
+                      value={form.hallIds?.map((id) => initialHalls.find((h) => h.id === id)?.name).join(', ') ?? '—'}
+                      readOnly
+                    />
+                  ) : (
+                    <select
+                      value={form.hallIds?.[0] ?? ''}
+                      onChange={(e) => handleHallChange(e.target.value)}
+                      className="input"
+                    >
+                      <option value="">Select hall</option>
+                      {activeHalls.map((h) => (
+                        <option key={h.id} value={h.id}>
+                          {h.name} (Cap: {h.seatingCapacity})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {selectedHall && (
+                    <p className="mt-1 text-xs text-brown-400">
+                      Capacity: {selectedHall.seatingCapacity} · Rate: S${hallRate(selectedHall)}/hr
+                      · Min duration: {minBookingHours(selectedHall)} hr
+                    </p>
+                  )}
+                </FormField>
+              )}
 
               <FormField label="Hall Purpose" required>
                 {isReadOnly ? (
@@ -962,11 +1049,15 @@ export function HallBooking() {
                   placeholder="e.g. 150"
                   disabled={isReadOnly}
                 />
-                {selectedHall && form.guests && Number(form.guests) > (selectedHall.seatingCapacity ?? 0) && (
-                  <p className="mt-1 text-xs text-red-600">
-                    Exceeds hall capacity of {selectedHall.seatingCapacity}.
-                  </p>
-                )}
+                {!!form.guests &&
+                  form.guests > 0 &&
+                  (form.packageId ? packageHalls : selectedHall ? [selectedHall] : []).some(
+                    (h) => Number(form.guests) > (h.seatingCapacity ?? 0),
+                  ) && (
+                    <p className="mt-1 text-xs text-red-600">
+                      Exceeds capacity of one or more selected halls.
+                    </p>
+                  )}
               </FormField>
             </div>
           </section>
@@ -1132,7 +1223,9 @@ export function HallBooking() {
               {/* Billing summary — read-only calculated block */}
               <div className="sm:col-span-2 rounded-lg border border-brown-100 bg-cream-50 p-4">
                 <div className="grid grid-cols-2 gap-y-2 text-sm">
-                  <span className="text-brown-600">Hall Amount</span>
+                  <span className="text-brown-600">
+                    {form.packageId ? 'Package Amount' : 'Hall Amount'}
+                  </span>
                   <span className="text-right font-medium text-brown-800">
                     S${billing.hallAmount.toFixed(2)}
                   </span>
@@ -1145,7 +1238,7 @@ export function HallBooking() {
                     S${billing.mealAmount.toFixed(2)}
                   </span>
                   <span className="text-brown-600">
-                    GST ({gstRate}%)
+                    GST{selectedGL ? ` (${selectedGL.gstType}${selectedGL.gstRate ? ` ${selectedGL.gstRate}%` : ''})` : ` (${gstRate}%)`}
                   </span>
                   <span className="text-right font-medium text-brown-800">
                     S${billing.gstAmount.toFixed(2)}
@@ -1206,8 +1299,8 @@ export function HallBooking() {
                 </FormField>
               )}
 
-              {/* Payment Status — derived, read-only */}
-              <FormField label="Payment Status">
+              {/* Payment Status — system-controlled, read-only */}
+              <FormField label="Payment Status" hint="Derived from advance amount">
                 <TextInput
                   value={
                     (form.advanceAmount ?? 0) <= 0
@@ -1221,8 +1314,8 @@ export function HallBooking() {
                 />
               </FormField>
 
-              {/* Booking Status — LAST field */}
-              <FormField label="Booking Status" required>
+              {/* Booking Status */}
+              <FormField label="Booking Status" required hint="Draft bookings do not block the hall">
                 {isReadOnly ? (
                   <TextInput value={form.bookingStatus ?? '—'} readOnly />
                 ) : (
