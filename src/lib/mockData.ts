@@ -148,16 +148,22 @@ export interface MealPackageMaster {
   id: string;
   code: string;
   name: string;
-  categoryId: string;
-  packageType: 'Vegetarian' | 'Non-Vegetarian' | 'Mixed';
-  paxType: 'Adult' | 'Child' | 'Both';
   pricePerPax: number;
   minimumPax: number;
-  maximumPax?: number;
-  glCode?: string;
+  gstApplicable?: boolean;
   description: string;
   status: 'Active' | 'Inactive';
   itemIds: string[];
+  /** @deprecated Item category is derived from menu items */
+  categoryId?: string;
+  /** @deprecated No longer used in Meal Package Master */
+  packageType?: 'Vegetarian' | 'Non-Vegetarian' | 'Mixed';
+  /** @deprecated No longer used in Meal Package Master */
+  paxType?: 'Adult' | 'Child' | 'Both';
+  /** @deprecated No longer used in Meal Package Master */
+  maximumPax?: number;
+  /** @deprecated No longer used in Meal Package Master */
+  glCode?: string;
 }
 
 export interface HallCancellationRecord {
@@ -571,9 +577,9 @@ export const paymentModes: PaymentMode[] = [
 ];
 
 export const mealPackagesMaster: MealPackageMaster[] = [
-  { id: 'mp1', code: 'MEAL001', name: 'Annadhanam Package', categoryId: 'mc2', packageType: 'Vegetarian', paxType: 'Both', pricePerPax: 10, minimumPax: 1, glCode: 'GL-2002', description: 'Meal package for devotees.', status: 'Active', itemIds: ['meal-i1'] },
-  { id: 'mp2', code: 'MEAL002', name: 'Special Meal Set', categoryId: 'mc3', packageType: 'Mixed', paxType: 'Both', pricePerPax: 15, minimumPax: 10, maximumPax: 500, glCode: 'GL-2002', description: 'Special meal package for events.', status: 'Active', itemIds: ['meal-i4', 'meal-i5'] },
-  { id: 'mp3', code: 'MEAL003', name: 'Wedding Feast Package', categoryId: 'mc2', packageType: 'Vegetarian', paxType: 'Both', pricePerPax: 25, minimumPax: 50, maximumPax: 500, glCode: 'GL-2002', description: 'Full wedding feast with multiple courses.', status: 'Active', itemIds: ['meal-i1', 'meal-i4', 'meal-i5', 'meal-i7'] },
+  { id: 'mp1', code: 'MEAL001', name: 'Annadhanam Package', pricePerPax: 10, minimumPax: 1, gstApplicable: true, description: 'Meal package for devotees.', status: 'Active', itemIds: ['meal-i1'] },
+  { id: 'mp2', code: 'MEAL002', name: 'Special Meal Set', pricePerPax: 15, minimumPax: 10, gstApplicable: true, description: 'Special meal package for events.', status: 'Active', itemIds: ['meal-i4', 'meal-i5'] },
+  { id: 'mp3', code: 'MEAL003', name: 'Wedding Feast Package', pricePerPax: 25, minimumPax: 50, gstApplicable: true, description: 'Full wedding feast with multiple courses.', status: 'Active', itemIds: ['meal-i1', 'meal-i4', 'meal-i5', 'meal-i7'] },
 ];
 
 export const gstRecords: Gst[] = [

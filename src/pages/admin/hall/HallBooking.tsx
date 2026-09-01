@@ -604,6 +604,14 @@ export function HallBooking() {
         return toast.error('Validation Error', 'Child Pax must be a non-negative number.');
       if ((form.adultPax ?? 0) + (form.childPax ?? 0) === 0)
         return toast.error('Validation Error', 'At least one Adult Pax or Child Pax is required.');
+      const mealPkg = mealPackagesMaster.find((m) => m.id === form.mealPackageId);
+      const totalPax = (form.adultPax ?? 0) + (form.childPax ?? 0);
+      if (mealPkg && totalPax < mealPkg.minimumPax) {
+        return toast.error(
+          'Validation Error',
+          `Pax count must be at least ${mealPkg.minimumPax} for the selected meal package.`,
+        );
+      }
     }
 
     if (!form.glCode)
@@ -1143,7 +1151,7 @@ export function HallBooking() {
                         <option value="">Select meal package</option>
                         {activeMealPackages.map((m) => (
                           <option key={m.id} value={m.id}>
-                            {m.name} — S${m.pricePerPax}/pax ({m.packageType})
+                            {m.name} — S${m.pricePerPax}/pax (min {m.minimumPax})
                           </option>
                         ))}
                       </select>
