@@ -1,15 +1,17 @@
 import { useMemo, useState } from 'react';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus, Edit, Trash2, X } from 'lucide-react';
 import { PageHeader } from '@/components/ui/StatusBadge';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { SearchFilterBar } from '@/components/ui/SearchFilterBar';
 import { Pagination } from '@/components/ui/Pagination';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { FormField, TextInput, Toggle } from '@/components/ui/Form';
+import { FileUpload } from '@/components/ui/FileUpload';
 import { useToast } from '@/components/ui/Toast';
 import { hallPurposes as initial, type HallPurpose } from '@/lib/mockData';
 
 const PAGE_SIZE = 8;
+const PURPOSE_IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp';
 
 export function HallPurposeMaster() {
   const toast = useToast();
@@ -29,7 +31,7 @@ export function HallPurposeMaster() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const openCreate = () => { setEditing(null); setForm({ name: '', description: '', status: 'Active' }); setModalOpen(true); };
+  const openCreate = () => { setEditing(null); setForm({ name: '', description: '', status: 'Active', image: undefined }); setModalOpen(true); };
   const openEdit = (r: HallPurpose) => { setEditing(r); setForm(r); setModalOpen(true); };
 
   const handleSave = () => {
@@ -39,12 +41,14 @@ export function HallPurposeMaster() {
 
     const status = form.status ?? 'Active';
 
+    const image = form.image?.trim() || undefined;
+
     if (editing) {
-      const updated: HallPurpose = { ...editing, name, description: form.description ?? editing.description, status };
+      const updated: HallPurpose = { ...editing, name, description: form.description ?? editing.description, image, status };
       setData(prev => prev.map(p => p.id === editing.id ? updated : p));
       toast.success('Purpose updated');
     } else {
-      const newRec: HallPurpose = { id: 'hp-' + Math.random().toString(36).slice(2), name, description: form.description ?? '', status };
+      const newRec: HallPurpose = { id: 'hp-' + Math.random().toString(36).slice(2), name, description: form.description ?? '', image, status };
       setData(prev => [...prev, newRec]);
       toast.success('Purpose created');
     }
@@ -75,6 +79,35 @@ export function HallPurposeMaster() {
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField label="Purpose Name" required><TextInput value={form.name ?? ''} onChange={(e) => setForm({ ...form, name: e.target.value })} /></FormField>
           <FormField label="Description" className="sm:col-span-2"><TextInput value={form.description ?? ''} onChange={(e) => setForm({ ...form, description: e.target.value })} /></FormField>
+          <FormField label="Purpose Image" className="sm:col-span-2" hint="Upload JPG, PNG, or WebP (optional).">
+            {form.image ? (
+              <div className="flex flex-wrap gap-2">
+                <div className="relative h-24 w-36 overflow-hidden rounded border border-brown-200">
+                  <img src={form.image} alt="purpose" className="h-full w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, image: undefined })}
+                    className="absolute right-1 top-1 rounded-full bg-red-500 p-0.5 text-white hover:bg-red-600"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="w-full sm:max-w-xs">
+                <FileUpload
+                  accept={PURPOSE_IMAGE_ACCEPT}
+                  onFile={(f) => {
+                    if (!['image/jpeg', 'image/png', 'image/webp'].includes(f.type)) {
+                      toast.error('Invalid file', 'Please upload a JPG, PNG, or WebP image.');
+                      return;
+                    }
+                    setForm({ ...form, image: URL.createObjectURL(f) });
+                  }}
+                />
+              </div>
+            )}
+          </FormField>
           <FormField label="Status"><Toggle checked={form.status === 'Active'} onChange={(v) => setForm({ ...form, status: v ? 'Active' : 'Inactive' })} trueLabel="Active" falseLabel="Inactive" /></FormField>
         </div>
       </Modal>

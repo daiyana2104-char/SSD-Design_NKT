@@ -520,6 +520,7 @@ export interface HallPurpose {
   id: string;
   name: string;
   description?: string;
+  image?: string;
   status: 'Active' | 'Inactive';
 }
 
