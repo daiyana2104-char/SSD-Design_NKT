@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Edit, Eye, Plus, Power, CreditCard, Check, X } from 'lucide-react';
+import { Edit, Eye, Plus, Power, CreditCard, Check, X, RefreshCw } from 'lucide-react';
 import { PageHeader, StatusBadge } from '@/components/ui/StatusBadge';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { SearchFilterBar } from '@/components/ui/SearchFilterBar';
@@ -8,7 +8,9 @@ import { Pagination } from '@/components/ui/Pagination';
 import { Modal } from '@/components/ui/Modal';
 import { Dropdown, FormField, TextArea, TextInput, Toggle } from '@/components/ui/Form';
 import { useToast } from '@/components/ui/Toast';
+import { useAdminStore } from '@/lib/adminStore';
 import { customers, glRecords } from '@/lib/mockData';
+import { hallBookings } from '@/lib/hallData';
 
 type MealModule = 'category' | 'item' | 'booking' | 'availability' | 'reports';
 
@@ -34,16 +36,26 @@ type MealType = 'Breakfast' | 'Lunch' | 'Dinner' | 'Snacks' | 'Other';
 type BookingStatus = 'Draft' | 'Confirmed' | 'Cancelled' | 'Completed';
 type PaymentStatus = 'Pending' | 'Partially Paid' | 'Paid' | 'Refunded';
 
+type PricingBasis = 'Per Pax' | 'Per Unit' | 'Per Pack / Quantity' | 'Per Tub';
+
 interface MealItem {
   id: string;
   code: string;
   name: string;
-  tamilName: string;
-  mealType: MealType;
   categoryId: string;
-  glCode?: string;
-  description: string;
+  description?: string;
+  pricingBasis: PricingBasis;
+  cost: number;
   status: 'Active' | 'Inactive';
+  createdAt?: string;
+  createdBy?: string;
+}
+
+interface MealPackageRef {
+  id: string;
+  name: string;
+  status: 'Active' | 'Inactive';
+  itemIds?: string[];
 }
 
 interface StoredMealPackage {
@@ -97,17 +109,19 @@ const mealAvailabilityKey = 'meal_availability';
 const mealTypeOptions = ['Breakfast', 'Lunch', 'Dinner', 'Snacks', 'Other'].map((value) => ({ label: value, value }));
 const bookingStatusOptions = ['Draft', 'Confirmed', 'Cancelled', 'Completed'].map((value) => ({ label: value, value }));
 
+const PRICING_BASIS_OPTIONS: PricingBasis[] = ['Per Pax', 'Per Unit', 'Per Pack / Quantity', 'Per Tub'];
+
 const initialMealItems: MealItem[] = [
-  { id: 'meal-i1', code: 'FOOD001', name: 'Idly', tamilName: 'இட்லி', mealType: 'Breakfast', categoryId: 'mc1', glCode: 'GL-2002', description: 'Steamed rice cakes', status: 'Active' },
-  { id: 'meal-i2', code: 'FOOD002', name: 'Vada', tamilName: 'வடை', mealType: 'Breakfast', categoryId: 'mc1', glCode: 'GL-2002', description: 'Crispy lentil doughnut', status: 'Active' },
-  { id: 'meal-i3', code: 'FOOD003', name: 'Pongal', tamilName: 'பொங்கல்', mealType: 'Breakfast', categoryId: 'mc1', glCode: 'GL-2002', description: 'Ghee ven pongal', status: 'Active' },
-  { id: 'meal-i4', code: 'FOOD004', name: 'Rice', tamilName: 'சாதம்', mealType: 'Lunch', categoryId: 'mc2', glCode: 'GL-2002', description: 'Steamed white rice', status: 'Active' },
-  { id: 'meal-i5', code: 'FOOD005', name: 'Sambar', tamilName: 'சாம்பார்', mealType: 'Lunch', categoryId: 'mc2', glCode: 'GL-2002', description: 'Traditional South Indian sambar', status: 'Active' },
-  { id: 'meal-i6', code: 'FOOD006', name: 'Rasam', tamilName: 'ரசம்', mealType: 'Lunch', categoryId: 'mc2', glCode: 'GL-2002', description: 'Pepper rasam', status: 'Active' },
-  { id: 'meal-i7', code: 'FOOD007', name: 'Payasam', tamilName: 'பாயாசம்', mealType: 'Lunch', categoryId: 'mc2', glCode: 'GL-2002', description: 'Sweet dessert payasam', status: 'Active' },
-  { id: 'meal-i8', code: 'FOOD008', name: 'Briyani', tamilName: 'பிரியாணி', mealType: 'Lunch', categoryId: 'mc2', glCode: 'GL-2002', description: 'Vegetable Dum Briyani', status: 'Active' },
-  { id: 'meal-i9', code: 'FOOD009', name: 'Coffee', tamilName: 'காபி', mealType: 'Snacks', categoryId: 'mc4', glCode: 'GL-2002', description: 'Filter coffee', status: 'Active' },
-  { id: 'meal-i10', code: 'FOOD010', name: 'Tea', tamilName: 'தேநீர்', mealType: 'Snacks', categoryId: 'mc4', glCode: 'GL-2002', description: 'Masala tea', status: 'Active' },
+  { id: 'meal-i1', code: 'FOOD001', name: 'Idly', categoryId: 'mc1', description: 'Steamed rice cakes', pricingBasis: 'Per Pax', cost: 2.5, status: 'Active', createdAt: '2026-01-10T09:00:00.000Z', createdBy: 'Suresh Krishnan' },
+  { id: 'meal-i2', code: 'FOOD002', name: 'Vada', categoryId: 'mc1', description: 'Crispy lentil doughnut', pricingBasis: 'Per Pax', cost: 2.0, status: 'Active', createdAt: '2026-01-10T09:05:00.000Z', createdBy: 'Suresh Krishnan' },
+  { id: 'meal-i3', code: 'FOOD003', name: 'Pongal', categoryId: 'mc1', description: 'Ghee ven pongal', pricingBasis: 'Per Pax', cost: 3.0, status: 'Active', createdAt: '2026-01-10T09:10:00.000Z', createdBy: 'Suresh Krishnan' },
+  { id: 'meal-i4', code: 'FOOD004', name: 'Rice', categoryId: 'mc2', description: 'Steamed white rice', pricingBasis: 'Per Pax', cost: 1.5, status: 'Active', createdAt: '2026-01-10T09:15:00.000Z', createdBy: 'Suresh Krishnan' },
+  { id: 'meal-i5', code: 'FOOD005', name: 'Sambar', categoryId: 'mc2', description: 'Traditional South Indian sambar', pricingBasis: 'Per Pax', cost: 2.0, status: 'Active', createdAt: '2026-01-10T09:20:00.000Z', createdBy: 'Suresh Krishnan' },
+  { id: 'meal-i6', code: 'FOOD006', name: 'Rasam', categoryId: 'mc2', description: 'Pepper rasam', pricingBasis: 'Per Pax', cost: 1.8, status: 'Active', createdAt: '2026-01-10T09:25:00.000Z', createdBy: 'Suresh Krishnan' },
+  { id: 'meal-i7', code: 'FOOD007', name: 'Payasam', categoryId: 'mc2', description: 'Sweet dessert payasam', pricingBasis: 'Per Pack / Quantity', cost: 3.5, status: 'Active', createdAt: '2026-01-10T09:30:00.000Z', createdBy: 'Suresh Krishnan' },
+  { id: 'meal-i8', code: 'FOOD008', name: 'Briyani', categoryId: 'mc2', description: 'Vegetable Dum Briyani', pricingBasis: 'Per Pax', cost: 5.0, status: 'Active', createdAt: '2026-01-10T09:35:00.000Z', createdBy: 'Suresh Krishnan' },
+  { id: 'meal-i9', code: 'FOOD009', name: 'Coffee', categoryId: 'mc4', description: 'Filter coffee', pricingBasis: 'Per Unit', cost: 1.0, status: 'Active', createdAt: '2026-01-10T09:40:00.000Z', createdBy: 'Suresh Krishnan' },
+  { id: 'meal-i10', code: 'FOOD010', name: 'Tea', categoryId: 'mc4', description: 'Masala tea', pricingBasis: 'Per Unit', cost: 0.8, status: 'Active', createdAt: '2026-01-10T09:45:00.000Z', createdBy: 'Suresh Krishnan' },
 ];
 
 const initialMealPackages: StoredMealPackage[] = [
@@ -123,7 +137,79 @@ function writeStorage<T>(key: string, value: T) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* ignore storage failures */ }
 }
 
-function loadMealItems() { return readStorage<MealItem[]>(mealItemsKey, initialMealItems); }
+function normalizePricingBasis(value?: string): PricingBasis {
+  if (value === 'Per Unit' || value === 'Per Cup') return 'Per Unit';
+  if (value === 'Per Pack / Quantity' || value === 'Per Portion') return 'Per Pack / Quantity';
+  if (value === 'Per Tub') return 'Per Tub';
+  return 'Per Pax';
+}
+
+function normalizeMealItem(raw: Partial<MealItem> & Record<string, unknown>, fallback?: MealItem): MealItem {
+  return {
+    id: raw.id ?? fallback?.id ?? `meal-i-${Math.random().toString(36).slice(2)}`,
+    code: raw.code ?? fallback?.code ?? '',
+    name: raw.name ?? fallback?.name ?? '',
+    categoryId: raw.categoryId ?? fallback?.categoryId ?? 'mc1',
+    description: raw.description ?? fallback?.description ?? '',
+    pricingBasis: normalizePricingBasis(String(raw.pricingBasis ?? fallback?.pricingBasis ?? 'Per Pax')),
+    cost: Number(raw.cost ?? fallback?.cost ?? 0),
+    status: raw.status ?? fallback?.status ?? 'Active',
+    createdAt: raw.createdAt ?? fallback?.createdAt ?? new Date().toISOString(),
+    createdBy: raw.createdBy ?? fallback?.createdBy ?? 'System',
+  };
+}
+
+function loadMealItems() {
+  const saved = readStorage<(Partial<MealItem> & Record<string, unknown>)[]>(mealItemsKey, []);
+  const source = saved.length ? saved : initialMealItems;
+  return source.map((item) => normalizeMealItem(item, initialMealItems.find((i) => i.id === item.id)));
+}
+
+function generateItemCode(existing: MealItem[]): string {
+  const nums = existing
+    .map((item) => {
+      const match = item.code.match(/^FOOD(\d+)$/i);
+      return match ? parseInt(match[1], 10) : 0;
+    })
+    .filter((n) => !Number.isNaN(n));
+  const next = nums.length ? Math.max(...nums) + 1 : 1;
+  return `FOOD${String(next).padStart(3, '0')}`;
+}
+
+function loadMealPackagesForDeps(): MealPackageRef[] {
+  const saved = readStorage<MealPackageRef[]>(mealPackagesKey, []);
+  if (saved.length) return saved;
+  return initialMealPackages.map((pkg) => ({
+    id: pkg.id,
+    name: pkg.name,
+    status: pkg.status,
+    itemIds: pkg.itemIds,
+  }));
+}
+
+function getItemDeactivationBlock(itemId: string): string | null {
+  const packages = loadMealPackagesForDeps();
+  const activePackages = packages.filter(
+    (pkg) => pkg.status === 'Active' && (pkg.itemIds ?? []).includes(itemId),
+  );
+  if (activePackages.length) {
+    return `This menu item is included in active food package(s): ${activePackages.map((p) => p.name).join(', ')}.`;
+  }
+
+  const packageIds = packages.filter((pkg) => (pkg.itemIds ?? []).includes(itemId)).map((pkg) => pkg.id);
+  const confirmedBookings = hallBookings.filter(
+    (booking) =>
+      booking.bookingStatus === 'Confirmed' &&
+      booking.mealsRequired &&
+      booking.mealPackageId &&
+      packageIds.includes(booking.mealPackageId),
+  );
+  if (confirmedBookings.length) {
+    return `This menu item is linked to confirmed booking(s): ${confirmedBookings.map((b) => b.bookingRef).join(', ')}.`;
+  }
+
+  return null;
+}
 function loadMealPackages() {
   const saved = readStorage<StoredMealPackage[]>(mealPackagesKey, []);
   return saved.length ? saved : initialMealPackages;
@@ -272,8 +358,16 @@ function MealCategoryMasterScreen() {
 
 function MealItemMasterScreen() {
   const toast = useToast();
+  const { user } = useAdminStore();
   const [data, setData] = useState<MealItem[]>(loadMealItems);
   const [search, setSearch] = useState('');
+  const [filterCategory, setFilterCategory] = useState('');
+  const [filterPricingBasis, setFilterPricingBasis] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [sort, setSort] = useState<{ field: 'name' | 'cost' | 'createdAt'; dir: 'asc' | 'desc' }>({
+    field: 'name',
+    dir: 'asc',
+  });
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<MealItem | null>(null);
@@ -282,42 +376,80 @@ function MealItemMasterScreen() {
     id: '',
     code: '',
     name: '',
-    tamilName: '',
-    mealType: 'Breakfast',
     categoryId: 'mc1',
-    glCode: 'GL-2002',
     description: '',
+    pricingBasis: 'Per Pax',
+    cost: 0,
     status: 'Active',
   });
 
-  const updateData = (next: MealItem[]) => { setData(next); writeStorage(mealItemsKey, next); };
-  const activeGlRecords = glRecords.filter((record) => record.status === 'Active');
+  const updateData = (next: MealItem[]) => {
+    setData(next);
+    writeStorage(mealItemsKey, next);
+  };
+
   const mealCategories = loadMealCategoriesForModule();
   const activeCategories = mealCategories.filter((c) => c.status === 'Active');
+  const pageSize = 8;
+
+  const categoryName = (categoryId: string) =>
+    mealCategories.find((category) => category.id === categoryId)?.name ?? '—';
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return data.filter((item) => !q || [item.code, item.name, item.tamilName].some((value) => value.toLowerCase().includes(q)));
-  }, [data, search]);
+    let rows = data.filter((item) => {
+      const matchesSearch = !q || item.name.toLowerCase().includes(q);
+      const matchesCategory = !filterCategory || item.categoryId === filterCategory;
+      const matchesPricing = !filterPricingBasis || item.pricingBasis === filterPricingBasis;
+      const matchesStatus = !filterStatus || item.status === filterStatus;
+      return matchesSearch && matchesCategory && matchesPricing && matchesStatus;
+    });
 
-  const pageSize = 8;
+    rows = [...rows].sort((a, b) => {
+      let cmp = 0;
+      if (sort.field === 'name') cmp = a.name.localeCompare(b.name);
+      else if (sort.field === 'cost') cmp = a.cost - b.cost;
+      else cmp = (a.createdAt ?? '').localeCompare(b.createdAt ?? '');
+      return sort.dir === 'asc' ? cmp : -cmp;
+    });
+
+    return rows;
+  }, [data, search, filterCategory, filterPricingBasis, filterStatus, sort]);
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const paged = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const hasActiveFilters = !!search || !!filterCategory || !!filterPricingBasis || !!filterStatus;
+
+  const clearFilters = () => {
+    setSearch('');
+    setFilterCategory('');
+    setFilterPricingBasis('');
+    setFilterStatus('');
+    setPage(1);
+  };
+
+  const handleRefresh = () => {
+    setData(loadMealItems());
+    clearFilters();
+    setSort({ field: 'name', dir: 'asc' });
+    toast.success('Refreshed', 'Menu item list has been refreshed.');
+  };
+
+  const blankForm = (): MealItem => ({
+    id: '',
+    code: generateItemCode(data),
+    name: '',
+    categoryId: activeCategories[0]?.id ?? 'mc1',
+    description: '',
+    pricingBasis: 'Per Pax',
+    cost: 0,
+    status: 'Active',
+  });
 
   const openCreate = () => {
     setEditing(null);
     setViewing(null);
-    setForm({
-      id: '',
-      code: `MI-${String(data.length + 1).padStart(3, '0')}`,
-      name: '',
-      tamilName: '',
-      mealType: 'Breakfast',
-      categoryId: activeCategories[0]?.id ?? 'mc1',
-      glCode: activeGlRecords[0]?.glCode ?? '',
-      description: '',
-      status: 'Active',
-    });
+    setForm(blankForm());
     setModalOpen(true);
   };
 
@@ -336,45 +468,84 @@ function MealItemMasterScreen() {
   };
 
   const save = () => {
-    const code = editing?.code ?? form.code.trim().toUpperCase();
+    const code = editing?.code ?? form.code;
     const name = form.name.trim();
-    if (!code) return toast.error('Validation Error', 'Item code is required.');
+    const cost = Number(form.cost);
+
     if (!name) return toast.error('Validation Error', 'Item name is required.');
-    if (!form.mealType) return toast.error('Validation Error', 'Meal type is required.');
-    if (!form.categoryId || !mealCategories.some((category) => category.id === form.categoryId && category.status === 'Active')) {
-      return toast.error('Validation Error', 'Select an active meal category.');
+    if (!form.categoryId || !activeCategories.some((category) => category.id === form.categoryId)) {
+      return toast.error('Validation Error', 'Select an active item category.');
     }
-    if (data.some((item) => item.code.toLowerCase() === code.toLowerCase() && item.id !== editing?.id)) {
-      return toast.error('Duplicate Code', 'Item code already exists.');
+    if (!form.pricingBasis) return toast.error('Validation Error', 'Pricing basis is required.');
+    if (!Number.isFinite(cost) || cost < 0) {
+      return toast.error('Validation Error', 'Cost must be a valid non-negative amount.');
+    }
+    if (
+      data.some(
+        (item) =>
+          item.id !== editing?.id &&
+          item.status === 'Active' &&
+          item.categoryId === form.categoryId &&
+          item.name.trim().toLowerCase() === name.toLowerCase(),
+      )
+    ) {
+      return toast.error(
+        'Duplicate Name',
+        'An active item with this name already exists in the selected category.',
+      );
+    }
+
+    if (form.status === 'Inactive' && editing) {
+      const block = getItemDeactivationBlock(editing.id);
+      if (block) return toast.error('Cannot Deactivate', block);
     }
 
     const record: MealItem = {
       ...form,
       code,
       name,
+      description: form.description?.trim() ?? '',
+      pricingBasis: form.pricingBasis,
+      cost,
       id: editing?.id ?? `meal-i-${Math.random().toString(36).slice(2)}`,
+      createdAt: editing?.createdAt ?? new Date().toISOString(),
+      createdBy: editing?.createdBy ?? user?.name ?? 'System',
     };
-    updateData(editing ? data.map((item) => item.id === editing.id ? record : item) : [...data, record]);
-    toast.success(editing ? 'Meal item updated' : 'Meal item created');
+
+    updateData(editing ? data.map((item) => (item.id === editing.id ? record : item)) : [...data, record]);
+    toast.success(editing ? 'Menu item updated' : 'Menu item created');
     setModalOpen(false);
   };
 
   const toggleStatus = (item: MealItem) => {
     const next = item.status === 'Active' ? 'Inactive' : 'Active';
-    updateData(data.map((value) => value.id === item.id ? { ...value, status: next } : value));
-    toast.success(`Meal item ${next === 'Active' ? 'activated' : 'deactivated'}`);
+    if (next === 'Inactive') {
+      const block = getItemDeactivationBlock(item.id);
+      if (block) return toast.error('Cannot Deactivate', block);
+    }
+    updateData(data.map((value) => (value.id === item.id ? { ...value, status: next } : value)));
+    toast.success(`Menu item ${next === 'Active' ? 'activated' : 'deactivated'}`);
+  };
+
+  const formatDate = (value?: string) => {
+    if (!value) return '—';
+    return new Date(value).toLocaleDateString();
   };
 
   const columns: Column<MealItem>[] = [
     { key: 'code', header: 'Item Code', render: (item) => <span className="font-medium text-brown-800">{item.code}</span> },
     { key: 'name', header: 'Item Name', render: (item) => <span className="text-brown-800">{item.name}</span> },
-    { key: 'tamilName', header: 'Tamil Name', render: (item) => item.tamilName || '-' },
-    { key: 'category', header: 'Category', render: (item) => mealCategories.find((category) => category.id === item.categoryId)?.name ?? '-' },
-    { key: 'mealType', header: 'Meal Type' },
-    { key: 'gl', header: 'GL', render: (item) => item.glCode ? (glRecords.find(g => g.glCode === item.glCode)?.glCode ?? item.glCode) : '—' },
+    { key: 'category', header: 'Item Category', render: (item) => categoryName(item.categoryId) },
+    { key: 'pricingBasis', header: 'Pricing Basis' },
+    { key: 'cost', header: 'Cost', align: 'right', render: (item) => `S$${item.cost.toFixed(2)}` },
+    { key: 'createdBy', header: 'Created By', render: (item) => item.createdBy ?? '—' },
+    { key: 'createdAt', header: 'Created Date', render: (item) => formatDate(item.createdAt) },
     { key: 'status', header: 'Status', render: (item) => <StatusBadge status={item.status} /> },
     {
-      key: 'actions', header: 'Actions', align: 'center', render: (item) => (
+      key: 'actions',
+      header: 'Actions',
+      align: 'center',
+      render: (item) => (
         <div className="flex justify-center gap-1">
           <button type="button" onClick={() => openView(item)} className="rounded p-1.5 text-brown-500 hover:bg-cream-100" title="View"><Eye className="h-4 w-4" /></button>
           <button type="button" onClick={() => openEdit(item)} className="rounded p-1.5 text-brown-500 hover:bg-cream-100" title="Edit"><Edit className="h-4 w-4" /></button>
@@ -386,9 +557,100 @@ function MealItemMasterScreen() {
 
   return (
     <div>
-      <PageHeader title="Meal Item Master" description="Manage individual meal food items" actions={<button type="button" className="btn-primary" onClick={openCreate}><Plus className="h-4 w-4" />Add Item</button>} />
+      <PageHeader
+        title="Meal Item Master"
+        description="Manage menu items for food packages and hall bookings"
+        actions={
+          <button type="button" className="btn-primary" onClick={openCreate}>
+            <Plus className="h-4 w-4" />
+            Add Item
+          </button>
+        }
+      />
       <div className="card p-4">
-        <SearchFilterBar search={search} onSearch={(value) => { setSearch(value); setPage(1); }} searchPlaceholder="Search item code or name..." filters={[]} />
+        <SearchFilterBar
+          search={search}
+          onSearch={(value) => {
+            setSearch(value);
+            setPage(1);
+          }}
+          searchPlaceholder="Search menu item name..."
+          filters={[
+            {
+              label: 'Category',
+              value: filterCategory,
+              onChange: (value) => {
+                setFilterCategory(value);
+                setPage(1);
+              },
+              options: [
+                { label: 'All Categories', value: '' },
+                ...mealCategories.map((c) => ({ label: c.name, value: c.id })),
+              ],
+            },
+            {
+              label: 'Pricing Basis',
+              value: filterPricingBasis,
+              onChange: (value) => {
+                setFilterPricingBasis(value);
+                setPage(1);
+              },
+              options: [
+                { label: 'All Pricing Basis', value: '' },
+                ...PRICING_BASIS_OPTIONS.map((value) => ({ label: value, value })),
+              ],
+            },
+            {
+              label: 'Status',
+              value: filterStatus,
+              onChange: (value) => {
+                setFilterStatus(value);
+                setPage(1);
+              },
+              options: [
+                { label: 'All Status', value: '' },
+                { label: 'Active', value: 'Active' },
+                { label: 'Inactive', value: 'Inactive' },
+              ],
+            },
+          ]}
+          actions={
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                <span className="hidden text-sm text-brown-500 sm:inline">Sort:</span>
+                <select
+                  value={`${sort.field}-${sort.dir}`}
+                  onChange={(e) => {
+                    const [field, dir] = e.target.value.split('-') as [
+                      'name' | 'cost' | 'createdAt',
+                      'asc' | 'desc',
+                    ];
+                    setSort({ field, dir });
+                    setPage(1);
+                  }}
+                  className="input py-1.5 text-sm"
+                >
+                  <option value="name-asc">Name A–Z</option>
+                  <option value="name-desc">Name Z–A</option>
+                  <option value="cost-asc">Cost (Low–High)</option>
+                  <option value="cost-desc">Cost (High–Low)</option>
+                  <option value="createdAt-desc">Newest First</option>
+                  <option value="createdAt-asc">Oldest First</option>
+                </select>
+              </div>
+              {hasActiveFilters && (
+                <button type="button" onClick={clearFilters} className="btn-outline flex items-center gap-1.5 text-sm">
+                  <X className="h-3.5 w-3.5" />
+                  Clear Filters
+                </button>
+              )}
+              <button type="button" onClick={handleRefresh} className="btn-outline flex items-center gap-1.5 text-sm">
+                <RefreshCw className="h-3.5 w-3.5" />
+                Refresh
+              </button>
+            </div>
+          }
+        />
       </div>
       <div className="card mt-4">
         <DataTable columns={columns} data={paged} />
@@ -396,12 +658,17 @@ function MealItemMasterScreen() {
       </div>
       <Modal
         open={modalOpen}
-        onClose={() => { setModalOpen(false); setViewing(null); }}
-        title={viewing ? 'View Meal Item' : editing ? 'Edit Meal Item' : 'Add Meal Item'}
+        onClose={() => {
+          setModalOpen(false);
+          setViewing(null);
+        }}
+        title={viewing ? 'View Menu Item' : editing ? 'Edit Menu Item' : 'Add Menu Item'}
         size="lg"
         footer={
           viewing ? (
-            <button type="button" className="btn-outline" onClick={() => { setModalOpen(false); setViewing(null); }}>Close</button>
+            <button type="button" className="btn-outline" onClick={() => { setModalOpen(false); setViewing(null); }}>
+              Close
+            </button>
           ) : (
             <>
               <button type="button" className="btn-outline" onClick={() => setModalOpen(false)}>Cancel</button>
@@ -410,51 +677,71 @@ function MealItemMasterScreen() {
           )
         }
       >
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField label="Item Code" required>
-            <TextInput disabled={!!viewing} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="e.g. FOOD001" />
-          </FormField>
-          <FormField label="Item Name" required>
-            <TextInput disabled={!!viewing} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Idly" />
-          </FormField>
-          <FormField label="Tamil Name">
-            <TextInput disabled={!!viewing} value={form.tamilName} onChange={(e) => setForm({ ...form, tamilName: e.target.value })} placeholder="e.g. இட்லி" />
-          </FormField>
-          <FormField label="Meal Category" required>
-            <div className={viewing ? 'pointer-events-none opacity-60' : undefined}>
-              <Dropdown
-                value={form.categoryId}
-                onChange={(value) => setForm({ ...form, categoryId: value })}
-                options={activeCategories.map((c) => ({ label: `${c.name} (${c.code})`, value: c.id }))}
-                placeholder="Select category"
+        <div className="max-h-[70vh] overflow-y-auto pr-1">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField label="Item Code" required hint="Auto-generated">
+              <TextInput readOnly value={form.code} className="bg-cream-50" />
+            </FormField>
+            <FormField label="Item Name" required>
+              <TextInput
+                disabled={!!viewing}
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="e.g. Idly"
               />
-            </div>
-          </FormField>
-          <FormField label="Meal Type" required>
-            <div className={viewing ? 'pointer-events-none opacity-60' : undefined}>
-              <Dropdown
-                value={form.mealType}
-                onChange={(value) => setForm({ ...form, mealType: value as MealType })}
-                options={mealTypeOptions}
+            </FormField>
+            <FormField label="Item Category" required>
+              <div className={viewing ? 'pointer-events-none opacity-60' : undefined}>
+                <Dropdown
+                  value={form.categoryId}
+                  onChange={(value) => setForm({ ...form, categoryId: value })}
+                  options={activeCategories.map((c) => ({ label: `${c.name} (${c.code})`, value: c.id }))}
+                  placeholder="Select category"
+                />
+              </div>
+            </FormField>
+            <FormField label="Pricing Basis" required>
+              <div className={viewing ? 'pointer-events-none opacity-60' : undefined}>
+                <Dropdown
+                  value={form.pricingBasis}
+                  onChange={(value) => setForm({ ...form, pricingBasis: value as PricingBasis })}
+                  options={PRICING_BASIS_OPTIONS.map((value) => ({ label: value, value }))}
+                />
+              </div>
+            </FormField>
+            <FormField label="Cost" required hint="Standard menu item cost">
+              <TextInput
+                disabled={!!viewing}
+                type="number"
+                min="0"
+                step="0.01"
+                value={String(form.cost)}
+                onChange={(e) => setForm({ ...form, cost: Number(e.target.value) })}
               />
-            </div>
-          </FormField>
-          <FormField label="GL">
-            <div className={viewing ? 'pointer-events-none opacity-60' : undefined}>
-              <Dropdown
-                value={form.glCode ?? ''}
-                onChange={(value) => setForm({ ...form, glCode: value })}
-                options={activeGlRecords.map((record) => ({ label: `${record.glCode} - ${record.glName}`, value: record.glCode }))}
-                placeholder="Select GL"
+            </FormField>
+            <FormField label="Description" className="sm:col-span-2">
+              <TextArea
+                disabled={!!viewing}
+                value={form.description ?? ''}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                placeholder="Optional item details"
               />
-            </div>
-          </FormField>
-          <FormField label="Description" className="sm:col-span-2">
-            <TextArea disabled={!!viewing} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Item details and ingredients" />
-          </FormField>
-          <FormField label="Status" className={viewing ? 'pointer-events-none opacity-60' : undefined}>
-            <Toggle checked={form.status === 'Active'} onChange={(value) => setForm({ ...form, status: value ? 'Active' : 'Inactive' })} trueLabel="Active" falseLabel="Inactive" />
-          </FormField>
+            </FormField>
+            <FormField label="Status" className={viewing ? 'pointer-events-none opacity-60' : undefined}>
+              <Toggle
+                checked={form.status === 'Active'}
+                onChange={(value) => {
+                  if (!value && editing) {
+                    const block = getItemDeactivationBlock(editing.id);
+                    if (block) return toast.error('Cannot Deactivate', block);
+                  }
+                  setForm({ ...form, status: value ? 'Active' : 'Inactive' });
+                }}
+                trueLabel="Active"
+                falseLabel="Inactive"
+              />
+            </FormField>
+          </div>
         </div>
       </Modal>
     </div>

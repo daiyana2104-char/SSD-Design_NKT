@@ -32,7 +32,6 @@ interface MealFoodItem {
   code: string;
   name: string;
   categoryId?: string;
-  mealType?: string;
   pricingBasis?: string;
   cost?: number;
   status: 'Active' | 'Inactive';
@@ -51,22 +50,22 @@ const initialMealCategories: MealCategory[] = [
 ];
 
 const initialMealItems: MealFoodItem[] = [
-  { id: 'meal-i1', code: 'FOOD001', name: 'Idly', categoryId: 'mc1', mealType: 'Breakfast', pricingBasis: 'Per Pax', cost: 2.5, status: 'Active' },
-  { id: 'meal-i2', code: 'FOOD002', name: 'Vada', categoryId: 'mc1', mealType: 'Breakfast', pricingBasis: 'Per Pax', cost: 2.0, status: 'Active' },
-  { id: 'meal-i3', code: 'FOOD003', name: 'Pongal', categoryId: 'mc1', mealType: 'Breakfast', pricingBasis: 'Per Pax', cost: 3.0, status: 'Active' },
-  { id: 'meal-i4', code: 'FOOD004', name: 'Rice', categoryId: 'mc2', mealType: 'Lunch', pricingBasis: 'Per Pax', cost: 1.5, status: 'Active' },
-  { id: 'meal-i5', code: 'FOOD005', name: 'Sambar', categoryId: 'mc2', mealType: 'Lunch', pricingBasis: 'Per Pax', cost: 2.0, status: 'Active' },
-  { id: 'meal-i6', code: 'FOOD006', name: 'Rasam', categoryId: 'mc2', mealType: 'Lunch', pricingBasis: 'Per Pax', cost: 1.8, status: 'Active' },
-  { id: 'meal-i7', code: 'FOOD007', name: 'Sweet', categoryId: 'mc2', mealType: 'Lunch', pricingBasis: 'Per Pax', cost: 2.5, status: 'Active' },
-  { id: 'meal-i8', code: 'FOOD008', name: 'Payasam', categoryId: 'mc2', mealType: 'Lunch', pricingBasis: 'Per Portion', cost: 3.5, status: 'Active' },
-  { id: 'meal-i9', code: 'FOOD009', name: 'Briyani', categoryId: 'mc2', mealType: 'Lunch', pricingBasis: 'Per Pax', cost: 5.0, status: 'Active' },
-  { id: 'meal-i10', code: 'FOOD010', name: 'Dalcha', categoryId: 'mc2', mealType: 'Lunch', pricingBasis: 'Per Pax', cost: 2.2, status: 'Active' },
-  { id: 'meal-i11', code: 'FOOD011', name: 'Raitha', categoryId: 'mc2', mealType: 'Lunch', pricingBasis: 'Per Pax', cost: 1.5, status: 'Active' },
-  { id: 'meal-i12', code: 'FOOD012', name: 'Papadam', categoryId: 'mc2', mealType: 'Lunch', pricingBasis: 'Per Pax', cost: 0.8, status: 'Active' },
-  { id: 'meal-i13', code: 'FOOD013', name: 'Coffee', categoryId: 'mc4', mealType: 'Snacks', pricingBasis: 'Per Cup', cost: 1.0, status: 'Active' },
-  { id: 'meal-i14', code: 'FOOD014', name: 'Tea', categoryId: 'mc4', mealType: 'Snacks', pricingBasis: 'Per Cup', cost: 0.8, status: 'Active' },
-  { id: 'meal-i15', code: 'FOOD015', name: 'Lemon Rice', categoryId: 'mc2', mealType: 'Lunch', pricingBasis: 'Per Pax', cost: 2.8, status: 'Active' },
-  { id: 'meal-i16', code: 'FOOD016', name: 'Thayir Rice', categoryId: 'mc2', mealType: 'Lunch', pricingBasis: 'Per Pax', cost: 2.5, status: 'Active' },
+  { id: 'meal-i1', code: 'FOOD001', name: 'Idly', categoryId: 'mc1', pricingBasis: 'Per Pax', cost: 2.5, status: 'Active' },
+  { id: 'meal-i2', code: 'FOOD002', name: 'Vada', categoryId: 'mc1', pricingBasis: 'Per Pax', cost: 2.0, status: 'Active' },
+  { id: 'meal-i3', code: 'FOOD003', name: 'Pongal', categoryId: 'mc1', pricingBasis: 'Per Pax', cost: 3.0, status: 'Active' },
+  { id: 'meal-i4', code: 'FOOD004', name: 'Rice', categoryId: 'mc2', pricingBasis: 'Per Pax', cost: 1.5, status: 'Active' },
+  { id: 'meal-i5', code: 'FOOD005', name: 'Sambar', categoryId: 'mc2', pricingBasis: 'Per Pax', cost: 2.0, status: 'Active' },
+  { id: 'meal-i6', code: 'FOOD006', name: 'Rasam', categoryId: 'mc2', pricingBasis: 'Per Pax', cost: 1.8, status: 'Active' },
+  { id: 'meal-i7', code: 'FOOD007', name: 'Sweet', categoryId: 'mc2', pricingBasis: 'Per Pack / Quantity', cost: 2.5, status: 'Active' },
+  { id: 'meal-i8', code: 'FOOD008', name: 'Payasam', categoryId: 'mc2', pricingBasis: 'Per Pack / Quantity', cost: 3.5, status: 'Active' },
+  { id: 'meal-i9', code: 'FOOD009', name: 'Briyani', categoryId: 'mc2', pricingBasis: 'Per Pax', cost: 5.0, status: 'Active' },
+  { id: 'meal-i10', code: 'FOOD010', name: 'Dalcha', categoryId: 'mc2', pricingBasis: 'Per Pax', cost: 2.2, status: 'Active' },
+  { id: 'meal-i11', code: 'FOOD011', name: 'Raitha', categoryId: 'mc2', pricingBasis: 'Per Pax', cost: 1.5, status: 'Active' },
+  { id: 'meal-i12', code: 'FOOD012', name: 'Papadam', categoryId: 'mc2', pricingBasis: 'Per Pax', cost: 0.8, status: 'Active' },
+  { id: 'meal-i13', code: 'FOOD013', name: 'Coffee', categoryId: 'mc4', pricingBasis: 'Per Unit', cost: 1.0, status: 'Active' },
+  { id: 'meal-i14', code: 'FOOD014', name: 'Tea', categoryId: 'mc4', pricingBasis: 'Per Unit', cost: 0.8, status: 'Active' },
+  { id: 'meal-i15', code: 'FOOD015', name: 'Lemon Rice', categoryId: 'mc2', pricingBasis: 'Per Pax', cost: 2.8, status: 'Active' },
+  { id: 'meal-i16', code: 'FOOD016', name: 'Thayir Rice', categoryId: 'mc2', pricingBasis: 'Per Pax', cost: 2.5, status: 'Active' },
 ];
 
 const initialPackages: MealPackage[] = [
@@ -188,7 +187,7 @@ export function MealPackageManagement() {
   const selectedItems = allMealItems.filter((item) => form.itemIds.includes(item.id));
 
   const itemCategoryLabel = (item: MealFoodItem) =>
-    mealCategories.find((c) => c.id === item.categoryId)?.name ?? item.mealType ?? '—';
+    mealCategories.find((c) => c.id === item.categoryId)?.name ?? '—';
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
