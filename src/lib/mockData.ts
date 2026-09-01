@@ -217,7 +217,7 @@ export interface HallPayment {
   paymentDate: string;
   reference?: string;
   collectedBy?: string;
-  paymentType?: 'Advance Payment' | 'Partial Payment' | 'Balance Payment';
+  paymentType?: 'Advance Payment' | 'Balance Payment' | 'Full Payment';
   remarks?: string;
 }
 
